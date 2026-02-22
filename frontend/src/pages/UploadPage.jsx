@@ -34,13 +34,11 @@ export default function UploadPage() {
   const handleDrop = (e) => {
     e.preventDefault()
     setDragActive(false)
-    const file = e.dataTransfer.files[0]
-    if (file) uploadMutation.mutate(file)
+    Array.from(e.dataTransfer.files).forEach(file => uploadMutation.mutate(file))
   }
 
   const handleFileSelect = (e) => {
-    const file = e.target.files[0]
-    if (file) uploadMutation.mutate(file)
+    Array.from(e.target.files).forEach(file => uploadMutation.mutate(file))
   }
 
   return (
@@ -67,6 +65,7 @@ export default function UploadPage() {
           ref={fileInputRef}
           type="file"
           accept=".xlsm,.xlsx"
+          multiple
           onChange={handleFileSelect}
           className="hidden"
         />
