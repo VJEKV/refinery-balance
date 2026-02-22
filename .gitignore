@@ -1,0 +1,10 @@
+data/*.xlsm
+data/*.xlsx
+data/thresholds.json
+__pycache__/
+*.pyc
+node_modules/
+dist/
+.env
+.venv/
+*.log
