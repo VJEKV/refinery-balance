@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import api from '../api/client'
@@ -7,9 +7,11 @@ import ControlChart from '../components/ControlChart'
 import ReconGapChart from '../components/ReconGapChart'
 import CusumChart from '../components/CusumChart'
 import EventLog from '../components/EventLog'
+import { ArrowLeft } from 'lucide-react'
 
 export default function UnitDetailPage() {
   const { code } = useParams()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('charts')
 
   const { data, isLoading } = useQuery({
@@ -30,22 +32,33 @@ export default function UnitDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-dark-text">{data.name}</h1>
-        <p className="text-sm text-dark-muted mt-1">
-          Период: {data.dates[0]} — {data.dates[data.dates.length - 1]}
-        </p>
+      {/* Header with back button */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate('/')}
+          className="p-1.5 rounded-lg bg-dark-card border border-dark-border text-dark-muted hover:text-dark-text"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-dark-text">{data.name}</h1>
+          <p className="text-xs text-dark-muted mt-0.5">
+            Период: {data.dates[0]} — {data.dates[data.dates.length - 1]}
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-4">
-        <KPICard label="Вход(изм)" value={kpi.input_measured} unit="т" color="blue" />
-        <KPICard label="Вход(согл)" value={kpi.input_reconciled} unit="т" color="blue" />
-        <KPICard label="Выход(согл)" value={kpi.output_reconciled} unit="т" color="green" />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPICard label="Вход (изм)" value={kpi.input_measured} unit="т" color="blue" />
+        <KPICard label="Вход (согл)" value={kpi.input_reconciled} unit="т" color="blue" />
+        <KPICard label="Выход (согл)" value={kpi.output_reconciled} unit="т" color="green" />
         <KPICard label="Невязка" value={kpi.imbalance_pct} unit="%" color={Math.abs(kpi.imbalance_pct) > 3 ? 'red' : 'yellow'} />
-        <KPICard label="Δпр/согл" value={kpi.recon_gap_pct} unit="%" color={kpi.recon_gap_pct > 5 ? 'red' : 'yellow'} />
+        <KPICard label="Δ пр/согл" value={kpi.recon_gap_pct} unit="%" color={kpi.recon_gap_pct > 5 ? 'red' : 'yellow'} />
         <KPICard label="Аномалий" value={kpi.anomaly_count} color={kpi.anomaly_count > 0 ? 'red' : 'green'} />
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 border-b border-dark-border">
         {tabs.map(t => (
           <button
@@ -71,7 +84,7 @@ export default function UnitDetailPage() {
       )}
 
       {tab === 'products' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-dark-card border border-dark-border rounded-xl p-4">
             <h3 className="text-sm font-semibold mb-3 text-dark-text">Входящие</h3>
             <div className="space-y-2">
@@ -85,7 +98,7 @@ export default function UnitDetailPage() {
                       <span className="font-mono text-dark-muted">{p.measured.toFixed(1)} т</span>
                     </div>
                     <div className="h-2 bg-dark-border rounded-full overflow-hidden">
-                      <div className="h-full bg-accent-blue rounded-full" style={{ width: `${pct}%` }} />
+                      <div className="h-full bg-accent-blue rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -106,7 +119,7 @@ export default function UnitDetailPage() {
                       <span className="font-mono text-dark-muted">{p.measured.toFixed(1)} т</span>
                     </div>
                     <div className="h-2 bg-dark-border rounded-full overflow-hidden">
-                      <div className="h-full bg-accent-green rounded-full" style={{ width: `${pct}%` }} />
+                      <div className="h-full bg-accent-green rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )

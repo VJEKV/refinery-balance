@@ -18,7 +18,7 @@ def _get_thresholds():
     return DEFAULT_THRESHOLDS.copy()
 
 
-def _collect_all_anomalies():
+def _collect_all_anomalies(date_from=None, date_to=None, month=None):
     thresholds = _get_thresholds()
     all_anomalies = []
     for code, unit_info in store.units.items():
@@ -29,6 +29,13 @@ def _collect_all_anomalies():
         all_anomalies.extend(anomalies)
     cross = detect_cross_unit(store.units, store.dates, thresholds)
     all_anomalies.extend(cross)
+
+    # Apply date filtering
+    if date_from or date_to or month:
+        filtered_dates = store.filter_dates(date_from, date_to, month)
+        date_strs = {d.isoformat() for d in filtered_dates}
+        all_anomalies = [a for a in all_anomalies if a["date"] in date_strs]
+
     return all_anomalies
 
 
@@ -38,8 +45,11 @@ def list_anomalies(
     method: Optional[str] = None,
     severity: Optional[str] = None,
     date: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
 ):
-    anomalies = _collect_all_anomalies()
+    anomalies = _collect_all_anomalies(date_from, date_to, month)
     if unit:
         anomalies = [a for a in anomalies if a.get("unit") == unit]
     if method:
@@ -53,8 +63,12 @@ def list_anomalies(
 
 
 @router.get("/summary")
-def anomaly_summary():
-    anomalies = _collect_all_anomalies()
+def anomaly_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
+    anomalies = _collect_all_anomalies(date_from, date_to, month)
     methods = ["balance_closure", "recon_gap", "spc", "cusum", "downtime", "cross_unit"]
     summary = {}
     for m in methods:

@@ -20,18 +20,24 @@ def _get_thresholds():
 
 
 @router.get("/overview")
-def overview():
+def overview(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
     thresholds = _get_thresholds()
-    dates = store.dates
-    if not dates:
+    filtered_dates = store.filter_dates(date_from, date_to, month)
+    all_dates = store.dates
+
+    if not all_dates:
         return {
             "total_in": 0, "total_out": 0, "imbalance": 0,
             "anomaly_count": 0, "downtime_count": 0,
             "units": [], "dates": [],
         }
 
-    latest_date = dates[-1]
-    ds = latest_date.strftime("%Y-%m-%d")
+    # Use filtered dates if available, otherwise all
+    target_dates = filtered_dates if filtered_dates else all_dates
 
     total_in = 0
     total_out = 0
@@ -43,9 +49,11 @@ def overview():
     for code, unit_info in store.units.items():
         data = unit_info["data"]
         unit_dates = unit_info["dates"]
-        if latest_date not in unit_dates:
+
+        # Find indices that match target dates
+        indices = [i for i, d in enumerate(unit_dates) if d in target_dates]
+        if not indices:
             continue
-        idx = unit_dates.index(latest_date)
 
         consumed_m = data["summary"]["consumed"]["measured"]
         consumed_r = data["summary"]["consumed"]["reconciled"]
@@ -54,12 +62,17 @@ def overview():
         imb_m = data["summary"]["imbalance"]["measured"]
         imb_rel_m = data["summary"]["imbalance_rel"]["measured"]
 
-        in_m = consumed_m[idx] if idx < len(consumed_m) else 0
-        in_r = consumed_r[idx] if idx < len(consumed_r) else 0
-        out_m = produced_m[idx] if idx < len(produced_m) else 0
-        out_r = produced_r[idx] if idx < len(produced_r) else 0
-        imb = imb_m[idx] if idx < len(imb_m) else 0
-        imb_rel = imb_rel_m[idx] * 100 if idx < len(imb_rel_m) else 0
+        # Aggregate over all matching days
+        in_m = sum(consumed_m[i] for i in indices if i < len(consumed_m))
+        in_r = sum(consumed_r[i] for i in indices if i < len(consumed_r))
+        out_m = sum(produced_m[i] for i in indices if i < len(produced_m))
+        out_r = sum(produced_r[i] for i in indices if i < len(produced_r))
+        imb = sum(imb_m[i] for i in indices if i < len(imb_m))
+
+        # Average imbalance_rel
+        imb_rel_values = [imb_rel_m[i] * 100 for i in indices if i < len(imb_rel_m)]
+        imb_rel = sum(imb_rel_values) / len(imb_rel_values) if imb_rel_values else 0
+
         recon_gap = abs(in_m - in_r) / abs(in_m) * 100 if in_m else 0
 
         total_in += in_m
@@ -67,21 +80,30 @@ def overview():
         total_imbalance += imb
 
         anomalies = detect_all(data, unit_dates, thresholds)
+        # Filter anomalies to target dates
+        target_date_strs = {d.isoformat() for d in target_dates}
+        anomalies = [a for a in anomalies if a["date"] in target_date_strs]
         all_anomalies.extend([{**a, "unit": code, "unit_name": unit_info["name"]} for a in anomalies])
 
+        # Downtime: count days with zero input+output in target period
+        dt_count = 0
+        for i in indices:
+            c = consumed_m[i] if i < len(consumed_m) else 0
+            p = produced_m[i] if i < len(produced_m) else 0
+            if c == 0 and p == 0:
+                dt_count += 1
+        if dt_count > 0:
+            downtime_count += dt_count
+
         is_downtime = in_m == 0 and out_m == 0
-        if is_downtime:
-            downtime_count += 1
 
-        unit_anomaly_count = len([a for a in anomalies if a["date"] == latest_date.isoformat()])
-
-        # Status
+        # Status based on anomalies
         status = "normal"
         if is_downtime:
             status = "downtime"
-        elif any(a["severity"] == "critical" and a["date"] == latest_date.isoformat() for a in anomalies):
+        elif any(a["severity"] == "critical" for a in anomalies):
             status = "critical"
-        elif any(a["severity"] == "warn" and a["date"] == latest_date.isoformat() for a in anomalies):
+        elif any(a["severity"] == "warn" for a in anomalies):
             status = "warn"
 
         units_overview.append({
@@ -94,12 +116,12 @@ def overview():
             "imbalance": round(imb, 2),
             "imbalance_pct": round(imb_rel, 2),
             "recon_gap_pct": round(recon_gap, 2),
-            "anomaly_count": unit_anomaly_count,
+            "anomaly_count": len(anomalies),
             "is_downtime": is_downtime,
             "status": status,
         })
 
-    cross_anomalies = detect_cross_unit(store.units, dates, thresholds)
+    cross_anomalies = detect_cross_unit(store.units, target_dates, thresholds)
     all_anomalies.extend(cross_anomalies)
 
     net_imbalance_pct = abs(total_imbalance) / total_in * 100 if total_in else 0
@@ -112,7 +134,7 @@ def overview():
         "downtime_count": downtime_count,
         "units": units_overview,
         "dates": store.get_all_dates(),
-        "latest_date": latest_date.isoformat(),
+        "latest_date": all_dates[-1].isoformat() if all_dates else None,
     }
 
 

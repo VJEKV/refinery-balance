@@ -9,23 +9,22 @@ export default function Layout() {
     queryFn: () => api.get('/analytics/overview').then(r => r.data),
   })
 
+  const dates = overview?.dates || []
+  const dateRange = dates.length > 0 ? `${dates[0]} — ${dates[dates.length - 1]}` : ''
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
-        fileCount={overview?.dates?.length || 0}
+        fileCount={dates.length}
         unitCount={overview?.units?.length || 0}
+        dateRange={dateRange}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-14 border-b border-dark-border bg-dark-card flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-accent-blue flex items-center justify-center text-white font-bold text-sm">
-              МБ
-            </div>
-            <h1 className="text-lg font-semibold text-dark-text">
-              Материальный Баланс НПЗ
-            </h1>
-          </div>
-          <div className="text-sm text-dark-muted">
+        <header className="h-12 border-b border-dark-border bg-dark-card flex items-center justify-between px-6 shrink-0">
+          <h1 className="text-sm font-semibold text-dark-text">
+            Материальный Баланс НПЗ
+          </h1>
+          <div className="text-xs text-dark-muted">
             {overview?.latest_date || '—'}
           </div>
         </header>

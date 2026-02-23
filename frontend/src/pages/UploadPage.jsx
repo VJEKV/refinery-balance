@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef } from 'react'
 import api from '../api/client'
-import { Upload, Trash2, FileSpreadsheet } from 'lucide-react'
+import { Upload, Trash2, FileSpreadsheet, CheckCircle } from 'lucide-react'
 
 export default function UploadPage() {
   const queryClient = useQueryClient()
@@ -50,7 +50,7 @@ export default function UploadPage() {
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
           dragActive
             ? 'border-accent-blue bg-accent-blue/5'
             : 'border-dark-border hover:border-dark-muted'
@@ -77,10 +77,17 @@ export default function UploadPage() {
         </div>
       )}
 
+      {uploadMutation.isSuccess && (
+        <div className="bg-accent-green/10 border border-accent-green/30 text-accent-green rounded-lg px-4 py-3 text-sm flex items-center gap-2">
+          <CheckCircle size={16} />
+          Файл загружен успешно
+        </div>
+      )}
+
       {files && files.length > 0 && (
         <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-dark-border">
-            <h2 className="text-sm font-semibold text-dark-text">Загруженные файлы</h2>
+            <h2 className="text-sm font-semibold text-dark-text">Загруженные файлы ({files.length})</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -96,12 +103,12 @@ export default function UploadPage() {
               {files.map(f => (
                 <tr key={f.filename} className="border-b border-dark-border/50 hover:bg-white/5">
                   <td className="px-4 py-2.5 flex items-center gap-2">
-                    <FileSpreadsheet size={16} className="text-accent-green" />
-                    {f.filename}
+                    <FileSpreadsheet size={16} className="text-accent-green shrink-0" />
+                    <span className="truncate">{f.filename}</span>
                   </td>
                   <td className="px-3 py-2.5 text-dark-muted">{f.period}</td>
-                  <td className="px-3 py-2.5 text-right">{f.dates.length}</td>
-                  <td className="px-3 py-2.5 text-right">{f.units.length}</td>
+                  <td className="px-3 py-2.5 text-right">{f.dates?.length || 0}</td>
+                  <td className="px-3 py-2.5 text-right">{f.units?.length || 0}</td>
                   <td className="px-3 py-2.5 text-right">
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(f.filename) }}

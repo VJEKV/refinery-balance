@@ -5,6 +5,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: #050a18;
+  color: #e2e8f0;
 }
 
 ::-webkit-scrollbar {
@@ -20,4 +22,48 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
+}
+
+/* Range slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #1e293b;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3b82f6;
+  margin-top: -5px;
+  border: 2px solid #050a18;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #1e293b;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2px solid #050a18;
+}
+
+/* Date input styling for dark theme */
+input[type="date"] {
+  color-scheme: dark;
 }

@@ -125,6 +125,27 @@ class DataStore:
     def get_all_dates(self) -> List[str]:
         return [d.isoformat() for d in self.dates]
 
+    def filter_dates(self, date_from: Optional[str] = None, date_to: Optional[str] = None,
+                     month: Optional[int] = None) -> List[date]:
+        """Filter dates by range or month. Returns filtered date list."""
+        from datetime import datetime
+        filtered = list(self.dates)
+        if month is not None and 1 <= month <= 12:
+            filtered = [d for d in filtered if d.month == month]
+        if date_from:
+            try:
+                df = datetime.strptime(date_from, "%Y-%m-%d").date()
+                filtered = [d for d in filtered if d >= df]
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                dt = datetime.strptime(date_to, "%Y-%m-%d").date()
+                filtered = [d for d in filtered if d <= dt]
+            except ValueError:
+                pass
+        return filtered
+
     def get_unit_series(self, code: str) -> Optional[Dict]:
         """Return full time-series for a unit (all days)."""
         unit = self.units.get(code)
