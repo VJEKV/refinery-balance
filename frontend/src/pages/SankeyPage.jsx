@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import api from '../api/client'
 import SankeyDiagram from '../components/SankeyDiagram'
+import ChartWrapper from '../components/ChartWrapper'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useDateFilter } from '../hooks/useDateFilter'
 
@@ -96,7 +97,9 @@ export default function SankeyPage() {
       {isLoading ? (
         <div className="text-dark-muted">Загрузка...</div>
       ) : (
-        <SankeyDiagram sankeyData={sankeyData} />
+        <ChartWrapper chartId="sankey" title="" className="overflow-x-auto">
+          {(resolved) => <SankeyDiagram sankeyData={sankeyData} resolved={resolved} />}
+        </ChartWrapper>
       )}
 
       {/* Losses table */}
@@ -124,12 +127,12 @@ export default function SankeyPage() {
                     <td className="px-4 py-2 text-dark-text">{l.source}</td>
                     <td className="px-3 py-2 text-dark-text">{l.target}</td>
                     <td className="px-3 py-2 text-dark-muted">{l.product}</td>
-                    <td className="px-3 py-2 text-right font-mono text-dark-text">{l.output_value.toFixed(1)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-dark-text">{l.input_value.toFixed(1)}</td>
-                    <td className={`px-3 py-2 text-right font-mono ${l.loss > 0 ? 'text-accent-red' : 'text-accent-green'}`}>
+                    <td className="px-3 py-2 text-right tabular-nums text-dark-text">{l.output_value.toFixed(1)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-dark-text">{l.input_value.toFixed(1)}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${l.loss > 0 ? 'text-accent-red' : 'text-accent-green'}`}>
                       {l.loss > 0 ? '+' : ''}{l.loss.toFixed(1)}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-dark-muted">{l.loss_pct.toFixed(1)}%</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{l.loss_pct.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>

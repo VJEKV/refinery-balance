@@ -5,6 +5,7 @@ from services.store import store
 from services.anomaly import (
     detect_all, get_spc_data, get_cusum_data, get_recon_gap_data
 )
+from services.product_recon import get_product_recon_gaps
 from config import DEFAULT_THRESHOLDS, THRESHOLDS_FILE
 import json
 import os
@@ -40,14 +41,27 @@ def get_unit(code: str):
     cusum_data = get_cusum_data(data, dates, thresholds)
     recon_data = get_recon_gap_data(data, dates)
 
-    # Products for latest date
+    # Products for latest date — with deviation
     products = {"inputs": [], "outputs": []}
     if dates:
         latest = dates[-1]
         daily = store.get_unit_daily(code, latest)
         if daily:
-            products["inputs"] = daily.get("inputs", [])
-            products["outputs"] = daily.get("outputs", [])
+            for direction in ("inputs", "outputs"):
+                items = daily.get(direction, [])
+                enriched = []
+                for p in items:
+                    m = p.get("measured", 0) or 0
+                    r = p.get("reconciled", 0) or 0
+                    dev_tons = round(abs(m - r), 2)
+                    dev_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
+                    enriched.append({**p, "dev_tons": dev_tons, "dev_pct": dev_pct})
+                # Sort by measured descending
+                enriched.sort(key=lambda x: x.get("measured", 0), reverse=True)
+                products[direction] = enriched
+
+    # Per-product recon gap time series
+    product_recon = get_product_recon_gaps(data, dates)
 
     # Summary stats
     summary = data["summary"]
@@ -80,5 +94,6 @@ def get_unit(code: str):
         "cusum": cusum_data,
         "recon_gap": recon_data,
         "products": products,
+        "product_recon": product_recon,
         "anomalies": anomalies,
     }

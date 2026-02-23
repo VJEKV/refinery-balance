@@ -75,6 +75,19 @@ def overview(
 
         recon_gap = abs(in_m - in_r) / abs(in_m) * 100 if in_m else 0
 
+        # Plan execution: plan_month from DataFrames
+        plan_in = 0.0
+        plan_out = 0.0
+        inputs_df = data.get("inputs")
+        outputs_df = data.get("outputs")
+        if inputs_df is not None and "plan_month" in inputs_df.columns:
+            plan_in = float(inputs_df["plan_month"].sum())
+        if outputs_df is not None and "plan_month" in outputs_df.columns:
+            plan_out = float(outputs_df["plan_month"].sum())
+
+        plan_pct_in = round(in_r / plan_in * 100, 2) if plan_in else 0.0
+        plan_pct_out = round(out_r / plan_out * 100, 2) if plan_out else 0.0
+
         total_in += in_m
         total_out += out_m
         total_imbalance += imb
@@ -85,25 +98,28 @@ def overview(
         anomalies = [a for a in anomalies if a["date"] in target_date_strs]
         all_anomalies.extend([{**a, "unit": code, "unit_name": unit_info["name"]} for a in anomalies])
 
-        # Downtime: count days with zero input+output in target period
+        # Downtime: count days with near-zero input+output (< 1 ton each)
+        ABS_MIN = 1.0
         dt_count = 0
         for i in indices:
-            c = consumed_m[i] if i < len(consumed_m) else 0
-            p = produced_m[i] if i < len(produced_m) else 0
-            if c == 0 and p == 0:
+            c = abs(consumed_m[i]) if i < len(consumed_m) else 0
+            p = abs(produced_m[i]) if i < len(produced_m) else 0
+            if c < ABS_MIN and p < ABS_MIN:
                 dt_count += 1
         if dt_count > 0:
             downtime_count += dt_count
 
-        is_downtime = in_m == 0 and out_m == 0
+        is_downtime = (abs(in_m) < ABS_MIN and abs(out_m) < ABS_MIN) or (plan_in == 0 and plan_out == 0 and abs(in_r) < ABS_MIN)
 
-        # Status based on anomalies
+        # Status based on plan execution + anomaly severity
+        has_critical = any(a["severity"] == "critical" for a in anomalies)
+        has_warn = any(a["severity"] == "warn" for a in anomalies)
         status = "normal"
         if is_downtime:
             status = "downtime"
-        elif any(a["severity"] == "critical" for a in anomalies):
+        elif plan_pct_in < 80 or plan_pct_out < 80 or has_critical:
             status = "critical"
-        elif any(a["severity"] == "warn" for a in anomalies):
+        elif plan_pct_in < 95 or plan_pct_out < 95 or has_warn:
             status = "warn"
 
         units_overview.append({
@@ -118,7 +134,14 @@ def overview(
             "recon_gap_pct": round(recon_gap, 2),
             "anomaly_count": len(anomalies),
             "is_downtime": is_downtime,
+            "downtime_days": dt_count,
             "status": status,
+            "plan_input_tons": round(plan_in, 2),
+            "fact_input_tons": round(in_r, 2),
+            "plan_output_tons": round(plan_out, 2),
+            "fact_output_tons": round(out_r, 2),
+            "plan_pct_input": plan_pct_in,
+            "plan_pct_output": plan_pct_out,
         })
 
     cross_anomalies = detect_cross_unit(store.units, target_dates, thresholds)
@@ -136,6 +159,48 @@ def overview(
         "dates": store.get_all_dates(),
         "latest_date": all_dates[-1].isoformat() if all_dates else None,
     }
+
+
+@router.get("/heatmap")
+def heatmap(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
+    """Daily consumed/produced for all units — for heatmap visualization."""
+    filtered_dates = store.filter_dates(date_from, date_to, month)
+    target_dates = filtered_dates if filtered_dates else store.dates
+    if not target_dates:
+        return {"dates": [], "units": []}
+
+    date_strs = [d.isoformat() for d in target_dates]
+    units_data = []
+
+    for code, unit_info in store.units.items():
+        unit_dates = unit_info["dates"]
+        data = unit_info["data"]
+        consumed_m = data["summary"]["consumed"]["measured"]
+        produced_m = data["summary"]["produced"]["measured"]
+
+        consumed_vals = []
+        produced_vals = []
+        for d in target_dates:
+            if d in unit_dates:
+                idx = unit_dates.index(d)
+                consumed_vals.append(round(consumed_m[idx], 2) if idx < len(consumed_m) else 0)
+                produced_vals.append(round(produced_m[idx], 2) if idx < len(produced_m) else 0)
+            else:
+                consumed_vals.append(0)
+                produced_vals.append(0)
+
+        units_data.append({
+            "code": code,
+            "name": unit_info["name"],
+            "consumed": consumed_vals,
+            "produced": produced_vals,
+        })
+
+    return {"dates": date_strs, "units": units_data}
 
 
 @router.get("/daily")

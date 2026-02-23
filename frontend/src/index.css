@@ -7,6 +7,7 @@ body {
   min-height: 100vh;
   background: #050a18;
   color: #e2e8f0;
+  font-size: 15px;
 }
 
 ::-webkit-scrollbar {
@@ -24,7 +25,7 @@ body {
   background: #334155;
 }
 
-/* Range slider styling */
+/* Range slider styling — supports per-slider color via --slider-color */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -44,7 +45,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--slider-color, #3b82f6);
   margin-top: -5px;
   border: 2px solid #050a18;
 }
@@ -59,7 +60,7 @@ input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--slider-color, #3b82f6);
   border: 2px solid #050a18;
 }
 

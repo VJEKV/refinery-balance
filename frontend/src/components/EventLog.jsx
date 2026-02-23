@@ -1,7 +1,7 @@
 import StatusBadge from './StatusBadge'
 
 const methodLabels = {
-  balance_closure: 'Невязка МБ',
+  balance_closure: 'Потери и утечки',
   recon_gap: 'Прибор/Согласов.',
   spc: 'SPC',
   cusum: 'CUSUM',
@@ -35,8 +35,8 @@ export default function EventLog({ anomalies = [] }) {
               <td className="px-3 py-2 whitespace-nowrap">{a.unit_name || '—'}</td>
               <td className="px-3 py-2 whitespace-nowrap">{methodLabels[a.method] || a.method}</td>
               <td className="px-3 py-2 text-dark-muted max-w-xs truncate">{a.description}</td>
-              <td className="px-3 py-2 text-right font-mono">{a.value}</td>
-              <td className="px-3 py-2 text-right font-mono text-dark-muted">{a.threshold}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{a.value}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{a.threshold}</td>
               <td className="px-3 py-2">
                 <StatusBadge status={a.severity} />
               </td>

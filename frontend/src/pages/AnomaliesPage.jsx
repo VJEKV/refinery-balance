@@ -6,7 +6,7 @@ import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch } from
 import { useDateFilter } from '../hooks/useDateFilter'
 
 const methodConfig = {
-  balance_closure: { label: 'Невязка МБ', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10' },
+  balance_closure: { label: 'Потери и утечки', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10' },
   recon_gap: { label: 'Прибор/Согласов.', icon: BarChart3, color: 'text-accent-yellow', bg: 'bg-accent-yellow/10' },
   spc: { label: 'SPC', icon: Activity, color: 'text-accent-blue', bg: 'bg-accent-blue/10' },
   cusum: { label: 'CUSUM', icon: TrendingUp, color: 'text-accent-purple', bg: 'bg-accent-purple/10' },

@@ -18,7 +18,7 @@ export default function KPICard({ label, value, unit, trend, color = 'blue' }) {
   return (
     <div className={`bg-dark-card border rounded-xl p-4 ${borderMap[color] || 'border-dark-border'}`}>
       <div className="text-xs text-dark-muted mb-1.5">{label}</div>
-      <div className={`text-xl font-bold ${colorMap[color] || 'text-dark-text'}`}>
+      <div className={`text-xl font-bold tabular-nums ${colorMap[color] || 'text-dark-text'}`}>
         {typeof value === 'number' ? value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) : value}
         {unit && <span className="text-xs font-normal text-dark-muted ml-1">{unit}</span>}
       </div>

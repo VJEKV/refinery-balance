@@ -23,7 +23,14 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Montserrat', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        xs: ['0.8rem', { lineHeight: '1.15rem' }],
+        sm: ['0.9rem', { lineHeight: '1.3rem' }],
+        base: ['0.95rem', { lineHeight: '1.5rem' }],
+        lg: ['1.1rem', { lineHeight: '1.65rem' }],
+        xl: ['1.3rem', { lineHeight: '1.8rem' }],
       },
     },
   },

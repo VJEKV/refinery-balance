@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   BarChart3, AlertTriangle, GitBranch, FolderOpen,
-  ChevronDown, ChevronUp, Save, RotateCcw,
+  ChevronDown, ChevronUp, Save, RotateCcw, Calendar, X,
 } from 'lucide-react'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
@@ -17,28 +17,34 @@ const navItems = [
 
 const methodConfig = [
   {
-    key: 'balance_closure', label: 'Невязка МБ', unit: '%', min: 0.5, max: 10, step: 0.5, icon: '\u2696\uFE0F',
+    key: 'balance_closure', label: 'Потери и утечки', unit: '%', min: 0.5, max: 10, step: 0.5,
+    color: '#f87171',
     desc: 'Дебаланс между измеренным входом и выходом установки. Показывает реальные потери, утечки, некалиброванные приборы.',
   },
   {
-    key: 'recon_gap', label: 'Прибор vs Согласов.', unit: '%', min: 1, max: 20, step: 0.5, icon: '\uD83D\uDCD0',
+    key: 'recon_gap', label: 'Дрейф датчиков', unit: '%', min: 1, max: 20, step: 0.5,
+    color: '#f59e0b',
     desc: 'Расхождение между показаниями приборов и значениями после согласования. Выявляет ручные корректировки и дрейф датчиков.',
   },
   {
-    key: 'spc_sigma', label: 'SPC Контрольные карты', unit: '\u03C3', min: 1, max: 5, step: 0.5, icon: '\uD83D\uDCCA',
-    desc: 'Статистический контроль: если суточный объём выходит за \u00B13\u03C3 от среднего — аномальный день. Ловит разовые выбросы.',
+    key: 'spc_sigma', label: 'Разовые выбросы', unit: 'σ', min: 1, max: 5, step: 0.5,
+    color: '#3b82f6',
+    desc: 'Статистический контроль: если суточный объём выходит за ±3σ от среднего — аномальный день.',
   },
   {
-    key: 'cusum_drift', label: 'CUSUM Дрейф', unit: '%', min: 1, max: 20, step: 0.5, icon: '\uD83D\uDCC8',
-    desc: 'Кумулятивная сумма отклонений. Ловит медленный дрейф: когда установка 10 дней подряд чуть недовырабатывает — SPC молчит, а CUSUM сработает.',
+    key: 'cusum_drift', label: 'Накопленный дрейф', unit: '%', min: 1, max: 20, step: 0.5,
+    color: '#a855f7',
+    desc: 'Кумулятивная сумма отклонений. Ловит медленный дрейф, когда установка понемногу недовырабатывает.',
   },
   {
-    key: 'downtime_pct', label: 'Простой', unit: '%', min: 1, max: 50, step: 1, icon: '\u23F8\uFE0F',
+    key: 'downtime_pct', label: 'Порог простоя', unit: '%', min: 1, max: 50, step: 1,
+    color: '#64748b',
     desc: 'Загрузка установки ниже порога от среднего = простой. Отделяет остановку от аномалии.',
   },
   {
-    key: 'cross_unit', label: 'Межцеховой баланс', unit: '%', min: 1, max: 20, step: 0.5, icon: '\uD83D\uDD17',
-    desc: 'Потери при передаче продукта между установками. Выход одной \u2260 вход другой = утечка или некалиброванный прибор на трассе.',
+    key: 'cross_unit', label: 'Потери на трассах', unit: '%', min: 1, max: 20, step: 0.5,
+    color: '#22d3ee',
+    desc: 'Потери при передаче продукта между установками. Выход одной ≠ вход другой.',
   },
 ]
 
@@ -48,6 +54,8 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
 
   const [values, setValues] = useState({})
   const [expandedMethod, setExpandedMethod] = useState(null)
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
 
   const { data: thresholds } = useQuery({
     queryKey: ['thresholds'],
@@ -57,6 +65,18 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
   useEffect(() => {
     if (thresholds) setValues(thresholds)
   }, [thresholds])
+
+  // Close month dropdown on outside click
+  useEffect(() => {
+    if (!monthDropdownOpen) return
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setMonthDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [monthDropdownOpen])
 
   const saveMutation = useMutation({
     mutationFn: (vals) => api.put('/settings/thresholds', vals),
@@ -74,6 +94,8 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
   const handleChange = (key, val) => {
     setValues(v => ({ ...v, [key]: parseFloat(val) }))
   }
+
+  const selectedMonthLabel = selectedMonth !== null ? MONTH_NAMES[selectedMonth] : null
 
   return (
     <aside className="w-[280px] bg-[#080e20] border-r border-dark-border flex flex-col shrink-0 overflow-y-auto overflow-x-hidden">
@@ -111,36 +133,69 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
         </nav>
       </div>
 
-      {/* Date filter */}
+      {/* Date filter — dropdown + tags */}
       <div className="px-3 pb-3 border-b border-dark-border">
         <div className="text-[0.65rem] font-semibold text-dark-muted uppercase tracking-wider mb-2 px-1">
           Период
         </div>
-        <div className="flex flex-wrap gap-1 mb-2">
+
+        {/* Month dropdown */}
+        <div className="relative mb-2" ref={dropdownRef}>
           <button
-            onClick={selectAll}
-            className={`px-2 py-0.5 rounded text-xs transition-colors ${
-              selectedMonth === null && !dateFrom
-                ? 'bg-accent-blue text-white'
-                : 'bg-dark-card text-dark-muted hover:text-dark-text border border-dark-border'
-            }`}
+            onClick={() => setMonthDropdownOpen(o => !o)}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-dark-card border border-dark-border rounded-lg text-sm text-dark-text hover:border-dark-muted transition-colors"
           >
-            Все
+            <div className="flex items-center gap-2">
+              <Calendar size={14} className="text-dark-muted" />
+              <span>{selectedMonthLabel || 'Все месяцы'}</span>
+            </div>
+            <ChevronDown size={14} className={`text-dark-muted transition-transform ${monthDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
-          {MONTH_NAMES.map((m, i) => (
-            <button
-              key={i}
-              onClick={() => selectMonth(i)}
-              className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                selectedMonth === i
-                  ? 'bg-accent-blue text-white'
-                  : 'bg-dark-card text-dark-muted hover:text-dark-text border border-dark-border'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
+
+          {monthDropdownOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-dark-card border border-dark-border rounded-lg shadow-2xl p-2 max-h-60 overflow-y-auto">
+              <button
+                onClick={() => { selectAll(); setMonthDropdownOpen(false) }}
+                className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
+                  selectedMonth === null && !dateFrom
+                    ? 'bg-accent-blue/15 text-accent-blue'
+                    : 'text-dark-muted hover:text-dark-text hover:bg-white/5'
+                }`}
+              >
+                Все месяцы
+              </button>
+              {MONTH_NAMES.map((m, i) => (
+                <button
+                  key={i}
+                  onClick={() => { selectMonth(i); setMonthDropdownOpen(false) }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
+                    selectedMonth === i
+                      ? 'bg-accent-blue/15 text-accent-blue'
+                      : 'text-dark-muted hover:text-dark-text hover:bg-white/5'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Selected month tag */}
+        {selectedMonthLabel && (
+          <div className="flex gap-1 mb-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue/15 text-accent-blue rounded text-xs">
+              {selectedMonthLabel}
+              <button
+                onClick={() => selectAll()}
+                className="hover:text-white transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          </div>
+        )}
+
         <div className="flex gap-1 items-center">
           <input
             type="date"
@@ -158,7 +213,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
         </div>
       </div>
 
-      {/* Methods & Thresholds */}
+      {/* Methods & Thresholds — colored per method */}
       <div className="px-3 py-3 border-b border-dark-border">
         <div className="text-[0.65rem] font-semibold text-dark-muted uppercase tracking-wider mb-2 px-1">
           Методы и пороги
@@ -167,17 +222,21 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
           {methodConfig.map(cfg => {
             const isExpanded = expandedMethod === cfg.key
             return (
-              <div key={cfg.key} className="bg-dark-card border border-dark-border rounded-lg p-2">
+              <div
+                key={cfg.key}
+                className="bg-dark-card border rounded-lg p-2"
+                style={{ borderColor: `${cfg.color}33` }}
+              >
                 <div
                   className="flex items-center justify-between cursor-pointer"
                   onClick={() => setExpandedMethod(isExpanded ? null : cfg.key)}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs">{cfg.icon}</span>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
                     <span className="text-xs text-dark-text truncate">{cfg.label}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-xs font-mono text-accent-blue">
+                    <span className="text-xs tabular-nums" style={{ color: cfg.color }}>
                       {(values[cfg.key] ?? 0).toFixed(1)}{cfg.unit}
                     </span>
                     {isExpanded ? <ChevronUp size={12} className="text-dark-muted" /> : <ChevronDown size={12} className="text-dark-muted" />}
@@ -195,7 +254,10 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
                   step={cfg.step}
                   value={values[cfg.key] ?? 0}
                   onChange={e => handleChange(cfg.key, e.target.value)}
-                  className="w-full h-1 bg-dark-border rounded appearance-none cursor-pointer accent-accent-blue mt-1.5"
+                  className="w-full h-1 rounded appearance-none cursor-pointer mt-1.5"
+                  style={{
+                    '--slider-color': cfg.color,
+                  }}
                 />
               </div>
             )

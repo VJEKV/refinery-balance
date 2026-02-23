@@ -1,28 +1,53 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef } from 'react'
 import api from '../api/client'
-import { Upload, Trash2, FileSpreadsheet, CheckCircle } from 'lucide-react'
+import { Upload, Trash2, FileSpreadsheet, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function UploadPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef()
   const [dragActive, setDragActive] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({}) // {fileName: {progress, status}}
 
   const { data: files } = useQuery({
     queryKey: ['files'],
     queryFn: () => api.get('/files').then(r => r.data),
   })
 
-  const uploadMutation = useMutation({
-    mutationFn: (file) => {
-      const fd = new FormData()
-      fd.append('file', file)
-      return api.post('/upload', fd)
-    },
-    onSuccess: () => {
+  const handleUpload = async (file) => {
+    const key = file.name
+    setUploadProgress(prev => ({ ...prev, [key]: { progress: 0, status: 'uploading', name: file.name } }))
+
+    const fd = new FormData()
+    fd.append('file', file)
+
+    try {
+      await api.post('/upload', fd, {
+        onUploadProgress: (e) => {
+          const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0
+          setUploadProgress(prev => ({ ...prev, [key]: { ...prev[key], progress: pct } }))
+        },
+      })
+      setUploadProgress(prev => ({ ...prev, [key]: { ...prev[key], progress: 100, status: 'processing' } }))
+      // Give backend time to process (store.load_all)
+      await new Promise(r => setTimeout(r, 500))
+      setUploadProgress(prev => ({ ...prev, [key]: { ...prev[key], status: 'done' } }))
       queryClient.invalidateQueries()
-    },
-  })
+      // Auto-clear after 4s
+      setTimeout(() => {
+        setUploadProgress(prev => {
+          const next = { ...prev }
+          delete next[key]
+          return next
+        })
+      }, 4000)
+    } catch (err) {
+      setUploadProgress(prev => ({
+        ...prev,
+        [key]: { ...prev[key], status: 'error', error: err?.response?.data?.detail || 'Ошибка загрузки' },
+      }))
+    }
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (filename) => api.delete(`/files/${encodeURIComponent(filename)}`),
@@ -34,12 +59,16 @@ export default function UploadPage() {
   const handleDrop = (e) => {
     e.preventDefault()
     setDragActive(false)
-    Array.from(e.dataTransfer.files).forEach(file => uploadMutation.mutate(file))
+    Array.from(e.dataTransfer.files).forEach(file => handleUpload(file))
   }
 
   const handleFileSelect = (e) => {
-    Array.from(e.target.files).forEach(file => uploadMutation.mutate(file))
+    Array.from(e.target.files).forEach(file => handleUpload(file))
+    e.target.value = ''
   }
+
+  const activeUploads = Object.values(uploadProgress)
+  const isUploading = activeUploads.some(u => u.status === 'uploading' || u.status === 'processing')
 
   return (
     <div className="space-y-6">
@@ -49,16 +78,22 @@ export default function UploadPage() {
         onDragOver={e => { e.preventDefault(); setDragActive(true) }}
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+          isUploading ? 'cursor-wait' : 'cursor-pointer'
+        } ${
           dragActive
             ? 'border-accent-blue bg-accent-blue/5'
             : 'border-dark-border hover:border-dark-muted'
         }`}
       >
-        <Upload size={40} className="mx-auto text-dark-muted mb-3" />
+        {isUploading ? (
+          <Loader2 size={40} className="mx-auto text-accent-blue mb-3 animate-spin" />
+        ) : (
+          <Upload size={40} className="mx-auto text-dark-muted mb-3" />
+        )}
         <p className="text-dark-text font-medium">
-          {uploadMutation.isPending ? 'Загрузка...' : 'Перетащите файл .xlsm или нажмите для выбора'}
+          {isUploading ? 'Идёт загрузка и обработка...' : 'Перетащите файл .xlsm или нажмите для выбора'}
         </p>
         <p className="text-dark-muted text-sm mt-1">Поддерживаются файлы .xlsm и .xlsx</p>
         <input
@@ -71,16 +106,51 @@ export default function UploadPage() {
         />
       </div>
 
-      {uploadMutation.isError && (
-        <div className="bg-accent-red/10 border border-accent-red/30 text-accent-red rounded-lg px-4 py-3 text-sm">
-          Ошибка загрузки: {uploadMutation.error?.response?.data?.detail || 'Неизвестная ошибка'}
-        </div>
-      )}
-
-      {uploadMutation.isSuccess && (
-        <div className="bg-accent-green/10 border border-accent-green/30 text-accent-green rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-          <CheckCircle size={16} />
-          Файл загружен успешно
+      {/* Upload progress cards */}
+      {activeUploads.length > 0 && (
+        <div className="space-y-2">
+          {activeUploads.map(u => (
+            <div key={u.name} className="bg-dark-card border border-dark-border rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileSpreadsheet size={16} className="text-accent-green shrink-0" />
+                  <span className="text-sm text-dark-text truncate">{u.name}</span>
+                </div>
+                <span className="text-xs shrink-0 ml-2">
+                  {u.status === 'uploading' && (
+                    <span className="text-accent-blue">{u.progress}% загрузка</span>
+                  )}
+                  {u.status === 'processing' && (
+                    <span className="text-accent-yellow flex items-center gap-1">
+                      <Loader2 size={12} className="animate-spin" />
+                      Обработка данных...
+                    </span>
+                  )}
+                  {u.status === 'done' && (
+                    <span className="text-accent-green flex items-center gap-1">
+                      <CheckCircle size={12} />
+                      Готово
+                    </span>
+                  )}
+                  {u.status === 'error' && (
+                    <span className="text-accent-red">{u.error}</span>
+                  )}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 bg-dark-border rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    u.status === 'error' ? 'bg-accent-red' :
+                    u.status === 'done' ? 'bg-accent-green' :
+                    u.status === 'processing' ? 'bg-accent-yellow animate-pulse' :
+                    'bg-accent-blue'
+                  }`}
+                  style={{ width: `${u.status === 'done' ? 100 : u.status === 'processing' ? 100 : u.progress}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

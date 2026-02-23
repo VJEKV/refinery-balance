@@ -139,22 +139,26 @@ def downtime(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]
     """4.5 Простои."""
     results = []
     downtime_pct = thresholds.get("downtime_pct", 10.0)
+    # Absolute minimum: if both consumed and produced < 1 ton, treat as downtime
+    ABS_MIN = 1.0
     consumed = unit_data["summary"]["consumed"]["measured"]
     produced = unit_data["summary"]["produced"]["measured"]
-    nonzero = [v for v in consumed if v > 0]
-    mu = np.mean(nonzero) if nonzero else 0
+    # Use values above absolute minimum for meaningful average
+    significant = [v for v in consumed if v >= ABS_MIN]
+    mu = float(np.mean(significant)) if significant else 0
     for i, d in enumerate(dates):
         if i >= len(consumed):
             break
         c = consumed[i]
         p = produced[i] if i < len(produced) else 0
-        if c == 0 and p == 0:
+        # Full downtime: both consumed and produced below absolute minimum
+        if c < ABS_MIN and p < ABS_MIN:
             results.append({
                 "date": d.isoformat(),
                 "method": "downtime",
-                "description": "Полный простой: вход и выход = 0",
-                "value": 0,
-                "threshold": downtime_pct,
+                "description": f"Простой: вход {c:.1f} т, выход {p:.1f} т (< {ABS_MIN} т)",
+                "value": round(c + p, 2),
+                "threshold": ABS_MIN,
                 "severity": "critical",
             })
         elif mu > 0 and c < mu * downtime_pct / 100:
@@ -302,14 +306,18 @@ def get_recon_gap_data(unit_data: Dict, dates: List[date]) -> Dict:
     consumed_m = unit_data["summary"]["consumed"]["measured"]
     consumed_r = unit_data["summary"]["consumed"]["reconciled"]
     gaps = []
+    gaps_tons = []
     for i in range(min(len(consumed_m), len(consumed_r))):
         m = consumed_m[i]
         r = consumed_r[i]
         if m == 0:
             gaps.append(0.0)
+            gaps_tons.append(0.0)
         else:
             gaps.append(round(abs(m - r) / abs(m) * 100, 2))
+            gaps_tons.append(round(abs(m - r), 2))
     return {
         "dates": [d.isoformat() for d in dates[:len(gaps)]],
         "gaps": gaps,
+        "gaps_tons": gaps_tons,
     }

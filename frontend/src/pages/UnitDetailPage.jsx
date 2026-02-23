@@ -7,6 +7,7 @@ import ControlChart from '../components/ControlChart'
 import ReconGapChart from '../components/ReconGapChart'
 import CusumChart from '../components/CusumChart'
 import EventLog from '../components/EventLog'
+import ChartWrapper from '../components/ChartWrapper'
 import { ArrowLeft } from 'lucide-react'
 
 export default function UnitDetailPage() {
@@ -53,7 +54,7 @@ export default function UnitDetailPage() {
         <KPICard label="Вход (изм)" value={kpi.input_measured} unit="т" color="blue" />
         <KPICard label="Вход (согл)" value={kpi.input_reconciled} unit="т" color="blue" />
         <KPICard label="Выход (согл)" value={kpi.output_reconciled} unit="т" color="green" />
-        <KPICard label="Невязка" value={kpi.imbalance_pct} unit="%" color={Math.abs(kpi.imbalance_pct) > 3 ? 'red' : 'yellow'} />
+        <KPICard label="Отклонение" value={kpi.imbalance_pct} unit="%" color={Math.abs(kpi.imbalance_pct) > 3 ? 'red' : 'yellow'} />
         <KPICard label="Δ пр/согл" value={kpi.recon_gap_pct} unit="%" color={kpi.recon_gap_pct > 5 ? 'red' : 'yellow'} />
         <KPICard label="Аномалий" value={kpi.anomaly_count} color={kpi.anomaly_count > 0 ? 'red' : 'green'} />
       </div>
@@ -77,9 +78,15 @@ export default function UnitDetailPage() {
 
       {tab === 'charts' && (
         <div className="space-y-4">
-          <ControlChart spcData={spc} />
-          <ReconGapChart reconData={recon_gap} />
-          <CusumChart cusumData={cusum} />
+          <ChartWrapper chartId="control" title="SPC Контрольная карта">
+            {(resolved) => <ControlChart spcData={spc} resolved={resolved} />}
+          </ChartWrapper>
+          <ChartWrapper chartId="recon-gap" title="Расхождение прибор / согласованное">
+            {(resolved) => <ReconGapChart reconData={recon_gap} resolved={resolved} />}
+          </ChartWrapper>
+          <ChartWrapper chartId="cusum" title="CUSUM">
+            {(resolved) => <CusumChart cusumData={cusum} resolved={resolved} />}
+          </ChartWrapper>
         </div>
       )}
 
@@ -95,7 +102,7 @@ export default function UnitDetailPage() {
                   <div key={i}>
                     <div className="flex justify-between text-xs mb-0.5">
                       <span className="text-dark-text truncate max-w-[200px]">{p.product}</span>
-                      <span className="font-mono text-dark-muted">{p.measured.toFixed(1)} т</span>
+                      <span className="tabular-nums text-dark-muted">{p.measured.toFixed(1)} т</span>
                     </div>
                     <div className="h-2 bg-dark-border rounded-full overflow-hidden">
                       <div className="h-full bg-accent-blue rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -116,7 +123,7 @@ export default function UnitDetailPage() {
                   <div key={i}>
                     <div className="flex justify-between text-xs mb-0.5">
                       <span className="text-dark-text truncate max-w-[200px]">{p.product}</span>
-                      <span className="font-mono text-dark-muted">{p.measured.toFixed(1)} т</span>
+                      <span className="tabular-nums text-dark-muted">{p.measured.toFixed(1)} т</span>
                     </div>
                     <div className="h-2 bg-dark-border rounded-full overflow-hidden">
                       <div className="h-full bg-accent-green rounded-full transition-all" style={{ width: `${pct}%` }} />
