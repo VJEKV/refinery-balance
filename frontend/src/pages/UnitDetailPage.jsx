@@ -1,12 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import api from '../api/client'
 import KPICard from '../components/KPICard'
 import ControlChart from '../components/ControlChart'
 import ReconGapChart from '../components/ReconGapChart'
 import CusumChart from '../components/CusumChart'
-import EventLog from '../components/EventLog'
 import ChartWrapper from '../components/ChartWrapper'
 import ReconHeatmap from '../components/ReconHeatmap'
 import { ArrowLeft, ChevronDown } from 'lucide-react'
@@ -17,7 +16,6 @@ const OUTPUT_COLORS = ['#22c55e','#10b981','#14b8a6','#84cc16','#34d399','#05966
 export default function UnitDetailPage() {
   const { code } = useParams()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('charts')
 
   const { data, isLoading } = useQuery({
     queryKey: ['unit', code],
@@ -27,18 +25,11 @@ export default function UnitDetailPage() {
   if (isLoading) return <div className="text-dark-muted">Загрузка...</div>
   if (!data) return <div className="text-dark-muted">Установка не найдена</div>
 
-  const { kpi, spc, cusum, recon_gap, products, anomalies } = data
-
-  const tabs = [
-    { id: 'charts', label: 'Графики' },
-    { id: 'recon', label: 'Расхождение' },
-    { id: 'products', label: 'Продукты' },
-    { id: 'events', label: 'События' },
-  ]
+  const { kpi, spc, cusum, recon_gap, products } = data
 
   return (
     <div className="space-y-6">
-      {/* Header with back button */}
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate('/')}
@@ -54,7 +45,7 @@ export default function UnitDetailPage() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* 1. KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <KPICard label="Вход (изм)" value={kpi.input_measured} unit="т" color="blue" />
         <KPICard label="Вход (согл)" value={kpi.input_reconciled} unit="т" color="blue" />
@@ -64,72 +55,46 @@ export default function UnitDetailPage() {
         <KPICard label="Аномалий" value={kpi.anomaly_count} color={kpi.anomaly_count > 0 ? 'red' : 'green'} />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-dark-border">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.id
-                ? 'border-accent-blue text-accent-blue'
-                : 'border-transparent text-dark-muted hover:text-dark-text'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* 2. SPC + CUSUM */}
+      <ChartWrapper chartId="control" title="SPC Контрольная карта">
+        {(resolved) => <ControlChart spcData={spc} resolved={resolved} />}
+      </ChartWrapper>
+      <ChartWrapper chartId="cusum" title="CUSUM">
+        {(resolved) => <CusumChart cusumData={cusum} resolved={resolved} />}
+      </ChartWrapper>
 
-      {tab === 'charts' && (
-        <div className="space-y-4">
-          <ChartWrapper chartId="control" title="SPC Контрольная карта">
-            {(resolved) => <ControlChart spcData={spc} resolved={resolved} />}
-          </ChartWrapper>
-          <ChartWrapper chartId="recon-gap" title="Расхождение прибор / согласованное">
-            {(resolved) => <ReconGapChart reconData={recon_gap} resolved={resolved} />}
-          </ChartWrapper>
-          <ChartWrapper chartId="cusum" title="CUSUM">
-            {(resolved) => <CusumChart cusumData={cusum} resolved={resolved} />}
-          </ChartWrapper>
-        </div>
-      )}
+      {/* 3. Расхождение прибор/согл — бар-чарт по дням */}
+      <ChartWrapper chartId="recon-gap" title="Расхождение прибор / согласованное">
+        {(resolved) => <ReconGapChart reconData={recon_gap} resolved={resolved} />}
+      </ChartWrapper>
 
-      {tab === 'recon' && (
-        <div className="space-y-4">
-          <ReconHeatmap
-            unitCode={code}
-            direction="inputs"
-            title="Расхождение замер/согл — Сырьё (входящие)"
-          />
-          <ReconHeatmap
-            unitCode={code}
-            direction="outputs"
-            title="Расхождение замер/согл — Продукция (исходящие)"
-          />
-        </div>
-      )}
+      {/* 4. Тепловая карта — Сырьё */}
+      <ReconHeatmap
+        unitCode={code}
+        direction="inputs"
+        title="Расхождение замер/согл — Сырьё (входящие)"
+      />
 
-      {tab === 'products' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ProductBasket
-            title="Структура сырья (входящие)"
-            items={products.inputs}
-            palette={INPUT_COLORS}
-          />
-          <ProductBasket
-            title="Структура продукции (исходящие)"
-            items={products.outputs}
-            palette={OUTPUT_COLORS}
-          />
-        </div>
-      )}
+      {/* 5. Тепловая карта — Продукция */}
+      <ReconHeatmap
+        unitCode={code}
+        direction="outputs"
+        title="Расхождение замер/согл — Продукция (исходящие)"
+      />
 
-      {tab === 'events' && (
-        <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
-          <EventLog anomalies={anomalies.map(a => ({ ...a, unit_name: data.name }))} />
-        </div>
-      )}
+      {/* 6. Структура сырья */}
+      <ProductBasket
+        title="Структура сырья (входящие)"
+        items={products.inputs}
+        palette={INPUT_COLORS}
+      />
+
+      {/* 7. Структура продукции */}
+      <ProductBasket
+        title="Структура продукции (исходящие)"
+        items={products.outputs}
+        palette={OUTPUT_COLORS}
+      />
     </div>
   )
 }
@@ -179,10 +144,10 @@ function ProductBasket({ title, items, palette }) {
                 />
               </div>
               <div className="flex items-center gap-3 mt-1 text-[11px] tabular-nums">
-                <span className="text-dark-muted">{fmt(p.measured)} т замер</span>
-                <span className="text-dark-muted">{fmt(p.reconciled)} т согл</span>
+                <span className="text-dark-muted">Замер: {fmt(p.measured)} т</span>
+                <span className="text-dark-muted">Согл: {fmt(p.reconciled)} т</span>
                 <span className="font-medium" style={{ color: deltaColor }}>
-                  {sign(delta)}{fmt(delta)} т ({sign(deltaPct)}{Math.abs(deltaPct).toFixed(1)}%)
+                  Δ: {sign(delta)}{fmt(delta)} т ({sign(deltaPct)}{Math.abs(deltaPct).toFixed(1)}%)
                 </span>
               </div>
             </div>
