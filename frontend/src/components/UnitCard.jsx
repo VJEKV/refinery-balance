@@ -61,6 +61,26 @@ export default function UnitCard({ unit, anomalies = [] }) {
           />
         </div>
 
+        {/* Measured / Reconciled actuals */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 mt-3" style={{ fontSize: '12px', color: '#94a3b8' }}>
+          <div className="flex justify-between">
+            <span>Сырьё (замер)</span>
+            <span className="tabular-nums font-medium">{fmt(unit.input_measured || 0)} т</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Продукция (замер)</span>
+            <span className="tabular-nums font-medium">{fmt(unit.output_measured || 0)} т</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Сырьё (согл)</span>
+            <span className="tabular-nums font-medium">{fmt(unit.input_reconciled || 0)} т</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Продукция (согл)</span>
+            <span className="tabular-nums font-medium">{fmt(unit.output_reconciled || 0)} т</span>
+          </div>
+        </div>
+
         {/* Stats text */}
         <div className="flex items-center gap-6 mt-4 text-sm">
           <span className={`${unit.anomaly_count > 0 ? 'text-accent-yellow' : 'text-dark-muted'}`}>
