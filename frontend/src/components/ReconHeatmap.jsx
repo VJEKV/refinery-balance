@@ -74,17 +74,29 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
       products: indices.map(i => data.products[i]),
       dates: data.dates,
       values: indices.map(i => data.values[i]),
-      share_pcts: data.share_pcts ? indices.map(i => data.share_pcts[i]) : null,
     }
   }, [data])
+
+  // Compute daily correction sums (measured - reconciled, signed)
+  const daySums = useMemo(() => {
+    if (!sorted) return null
+    const { dates, values } = sorted
+    return dates.map((_, di) => {
+      let sumTons = 0
+      for (let pi = 0; pi < values.length; pi++) {
+        const cell = values[pi][di]
+        sumTons += cell.measured - cell.reconciled
+      }
+      return sumTons
+    })
+  }, [sorted])
 
   if (isLoading) return <div className="text-dark-muted text-sm py-2">Загрузка тепловой карты...</div>
   if (!sorted || sorted.products.length === 0) return null
 
-  const { products, dates, values, share_pcts } = sorted
+  const { products, dates, values } = sorted
   const numProducts = products.length
   const cellH = numProducts <= 4 ? 36 : CELL_MIN_H
-  const numDays = dates.length
 
   const handleMouseEnter = (e, pi, di) => {
     const cell = values[pi][di]
@@ -130,7 +142,6 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
         <table className="border-collapse w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: '130px', minWidth: '130px' }} />
-            <col style={{ width: '50px', minWidth: '50px' }} />
             {dates.map((_, i) => (
               <col key={i} />
             ))}
@@ -139,9 +150,6 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
             <tr>
               <th className="text-left text-[10px] text-dark-muted font-normal px-1 py-1 sticky left-0 bg-dark-card z-10">
                 Продукт
-              </th>
-              <th className="text-center text-[10px] text-dark-muted font-normal px-0 py-1">
-                Доля
               </th>
               {dates.map((d, i) => (
                 <th key={i} className="text-center text-[10px] text-dark-muted font-normal px-0 py-1">
@@ -159,12 +167,6 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
                   title={product}
                 >
                   {product}
-                </td>
-                <td
-                  className="text-center text-[10px] text-dark-muted tabular-nums px-0 py-0"
-                  style={{ height: cellH }}
-                >
-                  {share_pcts ? share_pcts[pi].toFixed(1) + '%' : ''}
                 </td>
                 {dates.map((_, di) => {
                   const cell = values[pi][di]
@@ -196,6 +198,38 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
                 })}
               </tr>
             ))}
+            {/* Summary row: sum of corrections per day */}
+            {daySums && (
+              <tr className="border-t border-dark-border">
+                <td
+                  className="text-[10px] text-dark-muted font-semibold px-1 py-1 sticky left-0 bg-dark-card z-10"
+                  style={{ height: cellH }}
+                >
+                  Σ корр.
+                </td>
+                {daySums.map((sum, di) => {
+                  const absSum = Math.abs(sum)
+                  const color = sum === 0 ? '#64748b' : sum < 0 ? '#f87171' : '#f59e0b'
+                  const sign = sum > 0 ? '+' : sum < 0 ? '\u2212' : ''
+                  return (
+                    <td
+                      key={di}
+                      className="text-center px-0 py-1 border border-dark-bg/30"
+                      style={{
+                        fontSize: '9px',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontWeight: 600,
+                        color,
+                        height: cellH,
+                        backgroundColor: 'rgba(15,23,42,0.5)',
+                      }}
+                    >
+                      {absSum < 0.05 ? '0' : sign + absSum.toFixed(absSum >= 100 ? 0 : 1)}
+                    </td>
+                  )
+                })}
+              </tr>
+            )}
           </tbody>
         </table>
 

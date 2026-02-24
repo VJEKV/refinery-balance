@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, ArrowRight, Factory } from 'lucide-react'
+import { ChevronDown, ChevronUp, Factory, FileText } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import ChartWrapper from './ChartWrapper'
 import ControlChart from './ControlChart'
 import ReconGapChart from './ReconGapChart'
 import CusumChart from './CusumChart'
+import ReconHeatmap from './ReconHeatmap'
 import api from '../api/client'
 
 export default function UnitCard({ unit, anomalies = [] }) {
@@ -102,10 +103,22 @@ export default function UnitCard({ unit, anomalies = [] }) {
           })()}
         </div>
 
-        {/* Stats text */}
+        {/* Stats text + anomaly link */}
         <div className="flex items-center gap-6 mt-4 text-sm">
-          <span className={`${unit.anomaly_count > 0 ? 'text-accent-yellow' : 'text-dark-muted'}`}>
+          <span className={`flex items-center gap-1.5 ${unit.anomaly_count > 0 ? 'text-accent-yellow' : 'text-dark-muted'}`}>
             Обнаружено аномалий: <span className="font-semibold tabular-nums">{unit.anomaly_count}</span>
+            {unit.anomaly_count > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/unit/${encodeURIComponent(unit.code)}`)
+                }}
+                className="ml-0.5 p-0.5 rounded hover:bg-white/10 transition-colors"
+                title="Подробная аналитика"
+              >
+                <FileText size={14} />
+              </button>
+            )}
           </span>
           <span className={`${(unit.downtime_days || 0) > 0 ? 'text-accent-yellow' : 'text-dark-muted'}`}>
             Простоев: <span className="font-semibold tabular-nums">{unit.downtime_days || 0}</span> дн.
@@ -119,7 +132,7 @@ export default function UnitCard({ unit, anomalies = [] }) {
         </div>
       </div>
 
-      {/* Expanded: full-width analytics */}
+      {/* Expanded: full-width analytics — everything in one sheet */}
       {expanded && (
         <div className="border-t border-dark-border bg-[#080e20] px-5 py-4 space-y-5">
           {detailLoading ? (
@@ -138,12 +151,23 @@ export default function UnitCard({ unit, anomalies = [] }) {
                   {(res) => <ReconGapChart reconData={detail.recon_gap} resolved={res} />}
                 </ChartWrapper>
               )}
-
               {detail.cusum && detail.cusum.dates?.length > 0 && (
                 <ChartWrapper chartId="cusum" title="CUSUM">
                   {(res) => <CusumChart cusumData={detail.cusum} resolved={res} />}
                 </ChartWrapper>
               )}
+
+              {/* Heatmaps */}
+              <ReconHeatmap
+                unitCode={unit.code}
+                direction="inputs"
+                title="Расхождение замер/согл — Сырьё (входящие)"
+              />
+              <ReconHeatmap
+                unitCode={unit.code}
+                direction="outputs"
+                title="Расхождение замер/согл — Продукция (исходящие)"
+              />
 
               {unitAnomalies.length > 0 && (
                 <div>
@@ -170,16 +194,6 @@ export default function UnitCard({ unit, anomalies = [] }) {
           ) : (
             <div className="text-xs text-dark-muted py-1">Данные не найдены</div>
           )}
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/unit/${encodeURIComponent(unit.code)}`)
-            }}
-            className="flex items-center gap-1 text-sm text-accent-blue hover:underline"
-          >
-            Подробная страница <ArrowRight size={14} />
-          </button>
         </div>
       )}
     </div>
@@ -253,6 +267,7 @@ function ProductTable({ title, titleColor, items, reconColor }) {
           <thead>
             <tr className="border-b border-dark-border text-dark-muted">
               <th className="text-left py-1.5 pr-2">Продукт</th>
+              <th className="text-right py-1.5 px-1">Доля</th>
               <th className="text-right py-1.5 px-1">Замер (т)</th>
               <th className="text-right py-1.5 px-1">Согл (т)</th>
               <th className="text-right py-1.5 px-1">&Delta; (т)</th>
@@ -261,13 +276,16 @@ function ProductTable({ title, titleColor, items, reconColor }) {
           </thead>
           <tbody>
             {items.map((p, i) => {
-              const devTons = p.dev_tons ?? Math.abs((p.measured || 0) - (p.reconciled || 0))
-              const devPct = p.dev_pct ?? (p.measured ? Math.abs(p.measured - p.reconciled) / Math.abs(p.measured) * 100 : 0)
+              const devTons = p.delta_tons != null ? Math.abs(p.delta_tons) : Math.abs((p.measured || 0) - (p.reconciled || 0))
+              const devPct = p.delta_pct != null ? Math.abs(p.delta_pct) : (p.measured ? Math.abs(p.measured - p.reconciled) / Math.abs(p.measured) * 100 : 0)
               const isHigh = devPct > 5
               return (
                 <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
                   <td className="py-1.5 pr-2 text-dark-text truncate max-w-[180px]" title={p.product}>
                     {p.product}
+                  </td>
+                  <td className="py-1.5 px-1 text-right tabular-nums text-dark-muted">
+                    {(p.share_pct != null ? p.share_pct : 0).toFixed(1)}%
                   </td>
                   <td className="py-1.5 px-1 text-right tabular-nums text-dark-muted">
                     {(p.measured || 0).toFixed(1)}
