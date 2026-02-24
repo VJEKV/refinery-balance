@@ -8,6 +8,7 @@ import ReconGapChart from '../components/ReconGapChart'
 import CusumChart from '../components/CusumChart'
 import EventLog from '../components/EventLog'
 import ChartWrapper from '../components/ChartWrapper'
+import ReconHeatmap from '../components/ReconHeatmap'
 import { ArrowLeft } from 'lucide-react'
 
 export default function UnitDetailPage() {
@@ -27,6 +28,7 @@ export default function UnitDetailPage() {
 
   const tabs = [
     { id: 'charts', label: 'Графики' },
+    { id: 'recon', label: 'Расхождение' },
     { id: 'products', label: 'Продукты' },
     { id: 'events', label: 'События' },
   ]
@@ -87,6 +89,21 @@ export default function UnitDetailPage() {
           <ChartWrapper chartId="cusum" title="CUSUM">
             {(resolved) => <CusumChart cusumData={cusum} resolved={resolved} />}
           </ChartWrapper>
+        </div>
+      )}
+
+      {tab === 'recon' && (
+        <div className="space-y-4">
+          <ReconHeatmap
+            unitCode={code}
+            direction="inputs"
+            title="Расхождение замер/согл — Сырьё (входящие)"
+          />
+          <ReconHeatmap
+            unitCode={code}
+            direction="outputs"
+            title="Расхождение замер/согл — Продукция (исходящие)"
+          />
         </div>
       )}
 

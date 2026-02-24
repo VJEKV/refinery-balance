@@ -81,6 +81,31 @@ export default function UnitCard({ unit, anomalies = [] }) {
           </div>
         </div>
 
+        {/* Delta measured vs reconciled */}
+        <div className="grid grid-cols-2 gap-x-6 mt-2" style={{ fontSize: '12px' }}>
+          {(() => {
+            const di = unit.delta_input_tons || 0
+            const dip = unit.delta_input_pct || 0
+            const do_ = unit.delta_output_tons || 0
+            const dop = unit.delta_output_pct || 0
+            const colorIn = di < 0 ? '#f87171' : '#f59e0b'
+            const colorOut = do_ < 0 ? '#f87171' : '#f59e0b'
+            const sign = (v) => v > 0 ? '+' : v < 0 ? '−' : ''
+            return (
+              <>
+                <div className="flex justify-between" style={{ color: colorIn }}>
+                  <span>Δ Сырьё:</span>
+                  <span className="tabular-nums font-medium">{sign(di)}{fmt(di)} т ({sign(dip)}{Math.abs(dip).toFixed(2)}%)</span>
+                </div>
+                <div className="flex justify-between" style={{ color: colorOut }}>
+                  <span>Δ Продукция:</span>
+                  <span className="tabular-nums font-medium">{sign(do_)}{fmt(do_)} т ({sign(dop)}{Math.abs(dop).toFixed(2)}%)</span>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+
         {/* Stats text */}
         <div className="flex items-center gap-6 mt-4 text-sm">
           <span className={`${unit.anomaly_count > 0 ? 'text-accent-yellow' : 'text-dark-muted'}`}>

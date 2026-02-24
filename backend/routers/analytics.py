@@ -142,6 +142,10 @@ def overview(
             "fact_output_tons": round(out_r, 2),
             "plan_pct_input": plan_pct_in,
             "plan_pct_output": plan_pct_out,
+            "delta_input_tons": round(in_m - in_r, 2),
+            "delta_input_pct": round((in_m - in_r) / in_r * 100, 2) if in_r else 0.0,
+            "delta_output_tons": round(out_m - out_r, 2),
+            "delta_output_pct": round((out_m - out_r) / out_r * 100, 2) if out_r else 0.0,
         })
 
     cross_anomalies = detect_cross_unit(store.units, target_dates, thresholds)
@@ -201,6 +205,58 @@ def heatmap(
         })
 
     return {"dates": date_strs, "units": units_data}
+
+
+@router.get("/product-heatmap")
+def product_heatmap(
+    unit: str = Query(..., description="Unit code"),
+    direction: str = Query("inputs", description="inputs or outputs"),
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    """Per-product measured vs reconciled matrix for heatmap."""
+    u = store.get_unit(unit)
+    if not u:
+        raise HTTPException(404, "Установка не найдена")
+    if direction not in ("inputs", "outputs"):
+        raise HTTPException(400, "direction must be 'inputs' or 'outputs'")
+
+    unit_dates = u["dates"]
+    filtered = store.filter_dates(date_from, date_to)
+    target_dates = [d for d in (filtered if filtered else unit_dates) if d in unit_dates]
+    if not target_dates:
+        return {"products": [], "dates": [], "values": []}
+
+    df = u["data"].get(direction)
+    if df is None:
+        return {"products": [], "dates": [], "values": []}
+
+    date_strs = [d.isoformat() for d in target_dates]
+    products = []
+    values = []
+
+    for _, row in df.iterrows():
+        product_name = row["product"]
+        row_data = []
+        has_data = False
+        for d in target_dates:
+            ds = d.strftime("%Y-%m-%d")
+            m = float(row.get(f"{ds}_meas", 0) or 0)
+            r = float(row.get(f"{ds}_recon", 0) or 0)
+            delta_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
+            row_data.append({
+                "measured": round(m, 2),
+                "reconciled": round(r, 2),
+                "delta_tons": round(abs(m - r), 2),
+                "delta_pct": delta_pct,
+            })
+            if m > 0 or r > 0:
+                has_data = True
+        if has_data:
+            products.append(product_name)
+            values.append(row_data)
+
+    return {"products": products, "dates": date_strs, "values": values}
 
 
 @router.get("/daily")
