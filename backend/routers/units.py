@@ -41,24 +41,32 @@ def get_unit(code: str):
     cusum_data = get_cusum_data(data, dates, thresholds)
     recon_data = get_recon_gap_data(data, dates)
 
-    # Products for latest date — with deviation
+    # Products with totals over entire period
     products = {"inputs": [], "outputs": []}
     if dates:
-        latest = dates[-1]
-        daily = store.get_unit_daily(code, latest)
-        if daily:
-            for direction in ("inputs", "outputs"):
-                items = daily.get(direction, [])
-                enriched = []
-                for p in items:
-                    m = p.get("measured", 0) or 0
-                    r = p.get("reconciled", 0) or 0
-                    dev_tons = round(abs(m - r), 2)
-                    dev_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
-                    enriched.append({**p, "dev_tons": dev_tons, "dev_pct": dev_pct})
-                # Sort by measured descending
-                enriched.sort(key=lambda x: x.get("measured", 0), reverse=True)
-                products[direction] = enriched
+        for direction in ("inputs", "outputs"):
+            df = data.get(direction)
+            if df is None:
+                continue
+            meas_cols = [f"{d.strftime('%Y-%m-%d')}_meas" for d in dates]
+            recon_cols = [f"{d.strftime('%Y-%m-%d')}_recon" for d in dates]
+            items = []
+            for _, row in df.iterrows():
+                total_m = sum(float(row.get(c, 0) or 0) for c in meas_cols if c in row.index)
+                total_r = sum(float(row.get(c, 0) or 0) for c in recon_cols if c in row.index)
+                items.append({
+                    "product": row["product"],
+                    "measured": round(total_m, 2),
+                    "reconciled": round(total_r, 2),
+                })
+            grand_total_m = sum(p["measured"] for p in items)
+            for p in items:
+                p["share_pct"] = round(p["measured"] / grand_total_m * 100, 2) if grand_total_m else 0.0
+                delta = p["measured"] - p["reconciled"]
+                p["delta_tons"] = round(delta, 2)
+                p["delta_pct"] = round(delta / p["reconciled"] * 100, 2) if p["reconciled"] else 0.0
+            items.sort(key=lambda x: x["share_pct"], reverse=True)
+            products[direction] = items
 
     # Per-product recon gap time series
     product_recon = get_product_recon_gaps(data, dates)

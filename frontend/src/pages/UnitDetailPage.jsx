@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import api from '../api/client'
 import KPICard from '../components/KPICard'
 import ControlChart from '../components/ControlChart'
@@ -9,7 +9,10 @@ import CusumChart from '../components/CusumChart'
 import EventLog from '../components/EventLog'
 import ChartWrapper from '../components/ChartWrapper'
 import ReconHeatmap from '../components/ReconHeatmap'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronDown } from 'lucide-react'
+
+const INPUT_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#06b6d4','#0ea5e9','#2563eb','#7c3aed','#0891b2','#4f46e5','#0284c7','#6d28d9','#0369a1','#4338ca','#155e75','#5b21b6']
+const OUTPUT_COLORS = ['#22c55e','#10b981','#14b8a6','#84cc16','#34d399','#059669','#a3e635','#0d9488','#16a34a','#65a30d','#047857','#4ade80','#15803d','#0f766e','#166534']
 
 export default function UnitDetailPage() {
   const { code } = useParams()
@@ -109,48 +112,16 @@ export default function UnitDetailPage() {
 
       {tab === 'products' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-            <h3 className="text-sm font-semibold mb-3 text-dark-text">Входящие</h3>
-            <div className="space-y-2">
-              {products.inputs.map((p, i) => {
-                const maxVal = Math.max(...products.inputs.map(x => x.measured || 0), 1)
-                const pct = (p.measured / maxVal) * 100
-                return (
-                  <div key={i}>
-                    <div className="flex justify-between text-xs mb-0.5">
-                      <span className="text-dark-text truncate max-w-[200px]">{p.product}</span>
-                      <span className="tabular-nums text-dark-muted">{p.measured.toFixed(1)} т</span>
-                    </div>
-                    <div className="h-2 bg-dark-border rounded-full overflow-hidden">
-                      <div className="h-full bg-accent-blue rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-              {products.inputs.length === 0 && <div className="text-xs text-dark-muted">Нет данных</div>}
-            </div>
-          </div>
-          <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-            <h3 className="text-sm font-semibold mb-3 text-dark-text">Исходящие</h3>
-            <div className="space-y-2">
-              {products.outputs.map((p, i) => {
-                const maxVal = Math.max(...products.outputs.map(x => x.measured || 0), 1)
-                const pct = (p.measured / maxVal) * 100
-                return (
-                  <div key={i}>
-                    <div className="flex justify-between text-xs mb-0.5">
-                      <span className="text-dark-text truncate max-w-[200px]">{p.product}</span>
-                      <span className="tabular-nums text-dark-muted">{p.measured.toFixed(1)} т</span>
-                    </div>
-                    <div className="h-2 bg-dark-border rounded-full overflow-hidden">
-                      <div className="h-full bg-accent-green rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-              {products.outputs.length === 0 && <div className="text-xs text-dark-muted">Нет данных</div>}
-            </div>
-          </div>
+          <ProductBasket
+            title="Структура сырья (входящие)"
+            items={products.inputs}
+            palette={INPUT_COLORS}
+          />
+          <ProductBasket
+            title="Структура продукции (исходящие)"
+            items={products.outputs}
+            palette={OUTPUT_COLORS}
+          />
         </div>
       )}
 
@@ -158,6 +129,74 @@ export default function UnitDetailPage() {
         <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
           <EventLog anomalies={anomalies.map(a => ({ ...a, unit_name: data.name }))} />
         </div>
+      )}
+    </div>
+  )
+}
+
+function ProductBasket({ title, items, palette }) {
+  const [showAll, setShowAll] = useState(false)
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="bg-dark-card border border-dark-border rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-dark-text mb-3">{title}</h3>
+        <div className="text-xs text-dark-muted">Нет данных</div>
+      </div>
+    )
+  }
+
+  const active = items.filter(p => p.measured > 0 || p.reconciled > 0)
+  const zero = items.filter(p => p.measured === 0 && p.reconciled === 0)
+  const visible = showAll ? items : active
+
+  const fmt = (v) => Math.abs(v).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+
+  return (
+    <div className="bg-dark-card border border-dark-border rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-dark-text mb-4">{title}</h3>
+      <div className="space-y-3">
+        {visible.map((p, i) => {
+          const color = palette[i % palette.length]
+          const delta = p.delta_tons || 0
+          const deltaPct = p.delta_pct || 0
+          const isZero = p.measured === 0 && p.reconciled === 0
+          const deltaColor = delta === 0 ? '#64748b' : delta < 0 ? '#f87171' : '#f59e0b'
+          const sign = (v) => v > 0 ? '+' : v < 0 ? '\u2212' : ''
+
+          return (
+            <div key={i} className={isZero ? 'opacity-40' : ''}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs text-dark-text truncate flex-1" title={p.product}>{p.product}</span>
+                <span className="text-xs font-semibold tabular-nums shrink-0" style={{ color }}>
+                  {(p.share_pct || 0).toFixed(1)}%
+                </span>
+              </div>
+              <div className="h-5 bg-dark-border/40 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(p.share_pct || 0, 0.5)}%`, backgroundColor: color }}
+                />
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-[11px] tabular-nums">
+                <span className="text-dark-muted">{fmt(p.measured)} т замер</span>
+                <span className="text-dark-muted">{fmt(p.reconciled)} т согл</span>
+                <span className="font-medium" style={{ color: deltaColor }}>
+                  {sign(delta)}{fmt(delta)} т ({sign(deltaPct)}{Math.abs(deltaPct).toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {zero.length > 0 && !showAll && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="flex items-center gap-1 mt-3 text-xs text-dark-muted hover:text-dark-text transition-colors"
+        >
+          <ChevronDown size={12} />
+          Показать все ({zero.length} нулевых)
+        </button>
       )}
     </div>
   )

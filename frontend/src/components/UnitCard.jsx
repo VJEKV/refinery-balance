@@ -7,15 +7,11 @@ import ChartWrapper from './ChartWrapper'
 import ControlChart from './ControlChart'
 import ReconGapChart from './ReconGapChart'
 import CusumChart from './CusumChart'
-import ProductReconChart from './ProductReconChart'
-import { useChartSettings } from '../hooks/useChartSettings'
 import api from '../api/client'
 
 export default function UnitCard({ unit, anomalies = [] }) {
   const [expanded, setExpanded] = useState(false)
   const navigate = useNavigate()
-  const { resolved } = useChartSettings('card')
-
   const { data: detail, isLoading: detailLoading } = useQuery({
     queryKey: ['unit', unit.code],
     queryFn: () => api.get(`/units/${encodeURIComponent(unit.code)}`).then(r => r.data),
@@ -141,17 +137,6 @@ export default function UnitCard({ unit, anomalies = [] }) {
                 <ChartWrapper chartId="recon-gap" title="Расхождение прибор / согласованное (суммарное)">
                   {(res) => <ReconGapChart reconData={detail.recon_gap} resolved={res} />}
                 </ChartWrapper>
-              )}
-
-              {detail.product_recon && (
-                <>
-                  {detail.product_recon.inputs?.length > 0 && (
-                    <ProductReconChart productRecon={detail.product_recon} direction="inputs" resolved={resolved} />
-                  )}
-                  {detail.product_recon.outputs?.length > 0 && (
-                    <ProductReconChart productRecon={detail.product_recon} direction="outputs" resolved={resolved} />
-                  )}
-                </>
               )}
 
               {detail.cusum && detail.cusum.dates?.length > 0 && (
