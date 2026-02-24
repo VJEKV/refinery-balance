@@ -232,10 +232,19 @@ def product_heatmap(
         return {"products": [], "dates": [], "values": []}
 
     date_strs = [d.isoformat() for d in target_dates]
+    recon_cols = [f"{d.strftime('%Y-%m-%d')}_recon" for d in target_dates]
     products = []
     values = []
+    share_pcts = []
 
+    # First pass: collect totals for share calculation
+    product_totals = []
     for _, row in df.iterrows():
+        total_r = sum(float(row.get(c, 0) or 0) for c in recon_cols if c in row.index)
+        product_totals.append(total_r)
+    grand_total_r = sum(product_totals)
+
+    for idx, (_, row) in enumerate(df.iterrows()):
         product_name = row["product"]
         row_data = []
         has_data = False
@@ -255,8 +264,10 @@ def product_heatmap(
         if has_data:
             products.append(product_name)
             values.append(row_data)
+            share = round(product_totals[idx] / grand_total_r * 100, 2) if grand_total_r else 0.0
+            share_pcts.append(share)
 
-    return {"products": products, "dates": date_strs, "values": values}
+    return {"products": products, "dates": date_strs, "values": values, "share_pcts": share_pcts}
 
 
 @router.get("/daily")

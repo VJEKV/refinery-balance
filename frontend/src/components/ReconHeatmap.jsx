@@ -2,11 +2,9 @@ import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
-const CELL_MIN_W = 35
 const CELL_MIN_H = 25
 
 function getHeatColor(pct) {
-  // Smooth gradient: 0-2% green, 2-5% yellow-orange, 5-15% orange-red, >15% deep red
   if (pct <= 0) return '#064e3b'
   if (pct <= 2) {
     const t = pct / 2
@@ -39,7 +37,6 @@ function lerpColor(a, b, t) {
 }
 
 function textColor(bgPct) {
-  // Dark text on light backgrounds (yellow/orange zone), white on dark
   if (bgPct <= 1) return '#a7f3d0'
   if (bgPct <= 2) return '#ffffff'
   if (bgPct <= 4) return '#1e293b'
@@ -67,7 +64,6 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
 
   const sorted = useMemo(() => {
     if (!data || !data.products?.length) return null
-    // Sort products by average delta_pct descending (most problematic on top)
     const indices = data.products.map((_, i) => i)
     indices.sort((a, b) => {
       const avgA = data.values[a].reduce((s, v) => s + v.delta_pct, 0) / data.values[a].length
@@ -78,15 +74,17 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
       products: indices.map(i => data.products[i]),
       dates: data.dates,
       values: indices.map(i => data.values[i]),
+      share_pcts: data.share_pcts ? indices.map(i => data.share_pcts[i]) : null,
     }
   }, [data])
 
   if (isLoading) return <div className="text-dark-muted text-sm py-2">Загрузка тепловой карты...</div>
   if (!sorted || sorted.products.length === 0) return null
 
-  const { products, dates, values } = sorted
+  const { products, dates, values, share_pcts } = sorted
   const numProducts = products.length
   const cellH = numProducts <= 4 ? 36 : CELL_MIN_H
+  const numDays = dates.length
 
   const handleMouseEnter = (e, pi, di) => {
     const cell = values[pi][di]
@@ -105,7 +103,7 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
   }
 
   return (
-    <div className="bg-dark-card border border-dark-border rounded-xl p-4" ref={containerRef}>
+    <div className="bg-dark-card border border-dark-border rounded-xl p-3 w-full" ref={containerRef}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-dark-text">{title}</h3>
         <div className="flex rounded-lg border border-dark-border overflow-hidden">
@@ -128,15 +126,25 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto relative">
-        <table className="border-collapse" style={{ minWidth: dates.length * CELL_MIN_W + 160 }}>
+      <div className="overflow-x-auto relative w-full">
+        <table className="border-collapse w-full" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '130px', minWidth: '130px' }} />
+            <col style={{ width: '50px', minWidth: '50px' }} />
+            {dates.map((_, i) => (
+              <col key={i} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th className="text-left text-[10px] text-dark-muted font-normal px-1 py-1 sticky left-0 bg-dark-card z-10" style={{ minWidth: 140 }}>
+              <th className="text-left text-[10px] text-dark-muted font-normal px-1 py-1 sticky left-0 bg-dark-card z-10">
                 Продукт
               </th>
+              <th className="text-center text-[10px] text-dark-muted font-normal px-0 py-1">
+                Доля
+              </th>
               {dates.map((d, i) => (
-                <th key={i} className="text-center text-[10px] text-dark-muted font-normal px-0 py-1" style={{ minWidth: CELL_MIN_W }}>
+                <th key={i} className="text-center text-[10px] text-dark-muted font-normal px-0 py-1">
                   {formatDay(d)}
                 </th>
               ))}
@@ -147,10 +155,16 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
               <tr key={pi}>
                 <td
                   className="text-[11px] text-dark-text px-1 py-0 sticky left-0 bg-dark-card z-10 truncate"
-                  style={{ maxWidth: 140, minWidth: 140, height: cellH }}
+                  style={{ height: cellH }}
                   title={product}
                 >
                   {product}
+                </td>
+                <td
+                  className="text-center text-[10px] text-dark-muted tabular-nums px-0 py-0"
+                  style={{ height: cellH }}
+                >
+                  {share_pcts ? share_pcts[pi].toFixed(1) + '%' : ''}
                 </td>
                 {dates.map((_, di) => {
                   const cell = values[pi][di]
@@ -170,7 +184,6 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
                         color: fg,
                         fontSize: '10px',
                         fontVariantNumeric: 'tabular-nums',
-                        minWidth: CELL_MIN_W,
                         height: cellH,
                         fontWeight: pct > 5 ? 600 : 400,
                       }}
