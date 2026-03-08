@@ -2,59 +2,47 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ================================================
-echo   Сборка server.exe для НПЗ Материальный Баланс
+echo   Building server.exe
 echo ================================================
 echo.
 
-:: Проверяем Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ОШИБКА: Python не найден. Установите Python 3.11+
-    echo https://www.python.org/downloads/
+    echo ERROR: Python not found. Install Python 3.11+
     pause
     exit /b
 )
 
-:: Устанавливаем зависимости
-echo [1/3] Установка зависимостей...
-pip install fastapi uvicorn[standard] openpyxl pandas numpy python-multipart aiofiles pyinstaller -q
+echo [1/3] Installing dependencies...
+pip install fastapi uvicorn[standard] openpyxl python-calamine pandas numpy python-multipart aiofiles pyinstaller -q
 
-:: Собираем .exe
-echo [2/3] Сборка server.exe (2-5 минут)...
+echo [2/3] Building server.exe...
 pyinstaller server.spec --distpath release --workpath build_tmp -y
 
-:: Формируем готовую папку для флешки
-echo [3/3] Формирование релиза...
-if exist release\НПЗ_МБ rd /s /q release\НПЗ_МБ
-mkdir release\НПЗ_МБ
-mkdir release\НПЗ_МБ\data
+echo [3/3] Creating release folder...
+if exist release\NPZ_MB rd /s /q release\NPZ_MB
+mkdir release\NPZ_MB
+mkdir release\NPZ_MB\data
 
-:: Копируем server + зависимости
-xcopy /s /e /y /q release\server release\НПЗ_МБ\server\
+xcopy /s /e /y /q release\server release\NPZ_MB\server\
+xcopy /s /e /y /q frontend\dist release\NPZ_MB\frontend\dist\
 
-:: Копируем frontend
-xcopy /s /e /y /q frontend\dist release\НПЗ_МБ\frontend\dist\
+copy /y START.bat release\NPZ_MB\
+copy /y STOP.bat release\NPZ_MB\
 
-:: Копируем bat-файлы
-copy /y START.bat release\НПЗ_МБ\
-copy /y STOP.bat release\НПЗ_МБ\
-
-:: Очистка
 rd /s /q build_tmp
 
 echo.
 echo ================================================
-echo   Готово! Папка release\НПЗ_МБ\ готова
-echo   для копирования на флешку
+echo   Done! Folder: release\NPZ_MB\
 echo ================================================
 echo.
-echo Структура:
-echo   НПЗ_МБ\
-echo     START.bat        — запуск
-echo     STOP.bat         — остановка
-echo     server\server.exe — сервер
-echo     frontend\dist\   — интерфейс
-echo     data\            — сюда класть .xlsm файлы
+echo   NPZ_MB\
+echo     START.bat         - start
+echo     STOP.bat          - stop
+echo     server\server.exe - server
+echo     frontend\dist\    - UI
+echo     data\             - put .xlsm files here
 echo.
 pause
 exit
