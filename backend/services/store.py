@@ -1,4 +1,4 @@
-"""DataStore — загрузка всех .xlsm в RAM через parser.py."""
+"""DataStore — загрузка всех .xlsm в RAM через parser_fast (calamine)."""
 import os
 import glob
 import re
@@ -6,7 +6,14 @@ from datetime import date
 from typing import Dict, List, Optional
 
 from config import DATA_DIR
-from services.parser import parse_report
+
+# Быстрый парсер (Rust/calamine), fallback на openpyxl
+try:
+    from services.parser_fast import parse_report
+    print("Парсер: python-calamine (быстрый)")
+except ImportError:
+    from services.parser import parse_report
+    print("Парсер: openpyxl (медленный, установите python-calamine)")
 
 
 class DataStore:
