@@ -13,20 +13,19 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo [1/3] Installing dependencies...
-pip install fastapi uvicorn[standard] openpyxl python-calamine pandas numpy python-multipart aiofiles pyinstaller -q
+echo [1/2] Installing dependencies...
+pip install -r requirements.txt pyinstaller -q
 
-echo [2/3] Building server.exe...
+echo [2/2] Building server.exe...
 pyinstaller server.spec --distpath release --workpath build_tmp -y
 
-echo [3/3] Creating release folder...
 if exist release\NPZ_MB rd /s /q release\NPZ_MB
 mkdir release\NPZ_MB
 mkdir release\NPZ_MB\data
+mkdir release\NPZ_MB\frontend
 
 xcopy /s /e /y /q release\server release\NPZ_MB\server\
 xcopy /s /e /y /q frontend\dist release\NPZ_MB\frontend\dist\
-
 copy /y START.bat release\NPZ_MB\
 copy /y STOP.bat release\NPZ_MB\
 
@@ -34,15 +33,7 @@ rd /s /q build_tmp
 
 echo.
 echo ================================================
-echo   Done! Folder: release\NPZ_MB\
+echo   Done! Copy release\NPZ_MB\ to flash drive
 echo ================================================
-echo.
-echo   NPZ_MB\
-echo     START.bat         - start
-echo     STOP.bat          - stop
-echo     server\server.exe - server
-echo     frontend\dist\    - UI
-echo     data\             - put .xlsm files here
-echo.
 pause
 exit
