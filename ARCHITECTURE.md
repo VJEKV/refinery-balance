@@ -264,7 +264,54 @@ def build_sankey(store, target_date, data_type="reconciled"):
 
 ## 7. Deploy
 
-### nginx.conf
+### 7.1 Локальный запуск на любом ПК (без установки Python)
+
+Проект собирается в один `server.exe` через PyInstaller. Готовая папка копируется на флешку/SSD.
+
+#### Сборка (один раз на любом Windows-ПК с Python 3.11+)
+```
+BUILD.bat    → release\НПЗ_МБ\   (готовая папка для флешки)
+```
+
+#### Структура на флешке
+```
+НПЗ_МБ\
+├── START.bat              # Запуск: убивает старый процесс → запускает server.exe → открывает браузер
+├── STOP.bat               # Остановка: taskkill /f /im server.exe
+├── server\
+│   └── server.exe         # Python + FastAPI + pandas + uvicorn (всё внутри, ~240 МБ)
+├── frontend\
+│   └── dist\              # Собранный React
+└── data\                  # .xlsm файлы + thresholds.json
+```
+
+#### Как работает
+1. `START.bat` → запускает `server\server.exe` (свёрнутое окно)
+2. `server.exe` = uvicorn + FastAPI + pandas, порт 8000
+3. FastAPI раздаёт `frontend/dist` как статику + API на `/api/*`
+4. Браузер открывает `http://127.0.0.1:8000`
+
+#### Требования к ПК пользователя
+- Windows 7+ (для .bat)
+- Любой браузер (Chrome, Edge, Firefox)
+- **НЕ нужно:** Python, Node.js, интернет, права администратора
+
+#### Обновление
+```
+UPDATE.bat   → скачивает zip с GitHub, заменяет backend/frontend, сохраняет data/ и thresholds.json
+```
+
+#### PyInstaller: ключевые файлы
+| Файл | Назначение |
+|------|-----------|
+| `server.spec` | Конфигурация сборки: hiddenimports для всех модулей |
+| `backend/run_server.py` | Точка входа для .exe: multiprocessing.freeze_support() + uvicorn.run() |
+| `backend/config.py` | `_get_base_dir()` — определяет корень через `sys.frozen` |
+| `backend/main.py` | `_get_dist_dir()` — путь к dist через `sys.frozen` |
+
+### 7.2 VPS (nginx + systemd)
+
+#### nginx.conf
 ```nginx
 server {
     listen 80;
@@ -279,7 +326,7 @@ server {
 }
 ```
 
-### systemd
+#### systemd
 ```ini
 [Unit]
 Description=Refinery Balance
@@ -292,3 +339,11 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
+
+### 7.3 Production без nginx (один порт)
+Backend сам раздаёт `frontend/dist` через `FastAPI.StaticFiles`:
+```python
+# backend/main.py — автоматически, если dist/ существует
+app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="static")
+```
+Один порт 8000 для API и фронтенда — nginx не обязателен.
