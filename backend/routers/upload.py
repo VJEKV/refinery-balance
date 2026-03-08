@@ -26,7 +26,8 @@ async def upload_file(file: UploadFile = File(...)):
     with open(dest, "wb") as f:
         content = await file.read()
         f.write(content)
-    store.load_all()
+    # Парсим только новый файл, не перечитываем все
+    store.add_file(dest)
     return {"filename": file.filename, "status": "ok"}
 
 

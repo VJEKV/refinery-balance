@@ -18,44 +18,63 @@ class DataStore:
 
     def load_all(self):
         """Загрузить все .xlsm из DATA_DIR."""
+        import time
+        start = time.time()
         self.files = []
         self.units = {}
         self.dates = []
         self._file_meta = []
 
         pattern = os.path.join(DATA_DIR, "*.xlsm")
-        for path in sorted(glob.glob(pattern)):
+        paths = sorted(glob.glob(pattern))
+        for i, path in enumerate(paths):
+            t0 = time.time()
             try:
                 report = parse_report(path)
-                self.files.append(report)
-                self._file_meta.append({
-                    "filename": report["filename"],
-                    "dates": [d.isoformat() for d in report["dates"]],
-                    "units": list(report["units"].keys()),
-                    "period": f"{report['dates'][0].isoformat()} — {report['dates'][-1].isoformat()}" if report["dates"] else "",
-                })
-                for d in report["dates"]:
-                    if d not in self.dates:
-                        self.dates.append(d)
-                for unit_name, unit_data in report["units"].items():
-                    code = self._make_code(unit_name)
-                    if code not in self.units:
-                        self.units[code] = {
-                            "code": code,
-                            "name": unit_name,
-                            "data": unit_data,
-                            "dates": list(report["dates"]),
-                        }
-                    else:
-                        existing = self.units[code]
-                        for d in report["dates"]:
-                            if d not in existing["dates"]:
-                                existing["dates"].append(d)
-                        self._merge_unit(existing["data"], unit_data, report["dates"])
+                self._add_report(report)
+                print(f"  [{i+1}/{len(paths)}] {report['filename']} — {time.time()-t0:.1f}с")
             except Exception as e:
-                print(f"Ошибка загрузки {path}: {e}")
+                print(f"  Ошибка загрузки {path}: {e}")
 
         self.dates.sort()
+        print(f"Загрузка завершена за {time.time()-start:.1f}с")
+
+    def add_file(self, filepath: str):
+        """Загрузить один новый файл без перечитывания остальных."""
+        import time
+        t0 = time.time()
+        report = parse_report(filepath)
+        self._add_report(report)
+        self.dates.sort()
+        print(f"Добавлен {report['filename']} за {time.time()-t0:.1f}с")
+
+    def _add_report(self, report):
+        """Добавить распарсенный отчёт в хранилище."""
+        self.files.append(report)
+        self._file_meta.append({
+            "filename": report["filename"],
+            "dates": [d.isoformat() for d in report["dates"]],
+            "units": list(report["units"].keys()),
+            "period": f"{report['dates'][0].isoformat()} — {report['dates'][-1].isoformat()}" if report["dates"] else "",
+        })
+        for d in report["dates"]:
+            if d not in self.dates:
+                self.dates.append(d)
+        for unit_name, unit_data in report["units"].items():
+            code = self._make_code(unit_name)
+            if code not in self.units:
+                self.units[code] = {
+                    "code": code,
+                    "name": unit_name,
+                    "data": unit_data,
+                    "dates": list(report["dates"]),
+                }
+            else:
+                existing = self.units[code]
+                for d in report["dates"]:
+                    if d not in existing["dates"]:
+                        existing["dates"].append(d)
+                self._merge_unit(existing["data"], unit_data, report["dates"])
 
     def _make_code(self, name: str) -> str:
         cleaned = re.sub(r'[^\w\s]', '', name)
