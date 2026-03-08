@@ -37,6 +37,14 @@ app.include_router(sankey.router)
 app.include_router(settings.router)
 
 
-@app.get("/")
-def root():
+@app.get("/api/health")
+def health():
     return {"status": "ok", "app": "НПЗ Материальный Баланс"}
+
+
+# Production: раздача собранного React из frontend/dist
+import os
+DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(DIST_DIR):
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="static")

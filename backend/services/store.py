@@ -64,13 +64,36 @@ class DataStore:
         return code or name[:20].lower().replace(" ", "_")
 
     def _merge_unit(self, existing, new_data, new_dates):
+        """Объединение данных установки из нескольких файлов.
+
+        Для DataFrame (inputs/outputs): группируем по product,
+        сливая дат-колонки из разных файлов в одну строку.
+        Для summary: просто дописываем новые значения в конец списков.
+        """
         import pandas as pd
         for key in ("inputs", "outputs"):
             if new_data[key] is not None:
                 if existing[key] is None:
                     existing[key] = new_data[key]
                 else:
-                    existing[key] = pd.concat([existing[key], new_data[key]], ignore_index=True)
+                    combined = pd.concat([existing[key], new_data[key]], ignore_index=True)
+                    # Группируем по product: для plan берём max,
+                    # для дат-колонок берём first non-NaN (каждый файл заполняет свои даты)
+                    agg_dict = {}
+                    for col in combined.columns:
+                        if col == "product":
+                            continue
+                        elif col in ("plan_month", "plan_day"):
+                            agg_dict[col] = "max"
+                        else:
+                            agg_dict[col] = "first"
+                    existing[key] = (
+                        combined
+                        .groupby("product", sort=False)
+                        .agg(agg_dict)
+                        .reset_index()
+                        .fillna(0.0)
+                    )
         for summary_key in ("consumed", "produced", "imbalance", "imbalance_rel"):
             for stream in ("measured", "reconciled"):
                 existing["summary"][summary_key][stream].extend(
@@ -112,10 +135,18 @@ class DataStore:
             if df is not None and f"{ds}_meas" in df.columns:
                 prods = []
                 for _, row in df.iterrows():
+                    m = row.get(f"{ds}_meas", 0.0)
+                    r = row.get(f"{ds}_recon", 0.0)
+                    # Защита от NaN (может остаться после merge)
+                    import math
+                    if isinstance(m, float) and math.isnan(m):
+                        m = 0.0
+                    if isinstance(r, float) and math.isnan(r):
+                        r = 0.0
                     prods.append({
                         "product": row["product"],
-                        "measured": row.get(f"{ds}_meas", 0.0),
-                        "reconciled": row.get(f"{ds}_recon", 0.0),
+                        "measured": m,
+                        "reconciled": r,
                     })
                 result[direction] = prods
             else:
