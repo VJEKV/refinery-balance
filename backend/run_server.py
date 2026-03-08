@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     print("=" * 50)
     print("  НПЗ Материальный Баланс — Аналитика")
-    print("  http://127.0.0.1:8000")
+    print("  http://127.0.0.1:8001")
     print("=" * 50)
 
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    uvicorn.run(app, host="127.0.0.1", port=8001, log_level="info")

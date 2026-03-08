@@ -5,10 +5,10 @@ cd /d "%~dp0"
 :: Убить старый процесс если висит
 taskkill /f /im server.exe >nul 2>&1
 
-:: Проверить порт 8000 — если занят, подождать
-netstat -ano | findstr ":8000 " >nul 2>&1
+:: Проверить порт 8001 — если занят, подождать
+netstat -ano | findstr ":8001 " >nul 2>&1
 if %errorlevel%==0 (
-    echo Порт 8000 занят, ожидание освобождения...
+    echo Порт 8001 занят, ожидание освобождения...
     ping -n 3 127.0.0.1 >nul
 )
 
@@ -19,5 +19,5 @@ start /min "" "%~dp0server\server.exe"
 ping -n 5 127.0.0.1 >nul
 
 :: Открыть браузер
-start http://127.0.0.1:8000
+start http://127.0.0.1:8001
 exit
