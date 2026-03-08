@@ -6,7 +6,7 @@ echo   NPZ MB - Update from GitHub
 echo ========================================
 echo.
 
-if exist refinery-balance\data\thresholds.json copy /y refinery-balance\data\thresholds.json _thresholds_backup >nul
+if exist data\thresholds.json copy /y data\thresholds.json _thresholds_backup >nul
 
 echo Downloading update...
 curl -L -o update.zip "https://github.com/VJEKV/refinery-balance/archive/refs/heads/main.zip"
@@ -32,24 +32,19 @@ if exist _temp\refinery-balance-main (
 )
 
 echo Updating files...
-if exist refinery-balance\backend rd /s /q refinery-balance\backend
-if exist refinery-balance\frontend rd /s /q refinery-balance\frontend
-if exist refinery-balance\deploy rd /s /q refinery-balance\deploy
+if exist backend rd /s /q backend
+if exist frontend rd /s /q frontend
 
-xcopy /s /e /y /q %SRC%\backend refinery-balance\backend\
-xcopy /s /e /y /q %SRC%\frontend refinery-balance\frontend\
-if exist %SRC%\deploy xcopy /s /e /y /q %SRC%\deploy refinery-balance\deploy\
-
+xcopy /s /e /y /q %SRC%\backend backend\
+xcopy /s /e /y /q %SRC%\frontend frontend\
+if exist %SRC%\requirements.txt copy /y %SRC%\requirements.txt requirements.txt >nul
 if exist %SRC%\START.bat copy /y %SRC%\START.bat START.bat >nul
 if exist %SRC%\STOP.bat copy /y %SRC%\STOP.bat STOP.bat >nul
 if exist %SRC%\UPDATE.bat copy /y %SRC%\UPDATE.bat UPDATE.bat >nul
 
-if exist %SRC%\CLAUDE.md copy /y %SRC%\CLAUDE.md refinery-balance\CLAUDE.md >nul
-if exist %SRC%\ARCHITECTURE.md copy /y %SRC%\ARCHITECTURE.md refinery-balance\ARCHITECTURE.md >nul
-if exist %SRC%\requirements.txt copy /y %SRC%\requirements.txt refinery-balance\requirements.txt >nul
-
 if exist _thresholds_backup (
-    copy /y _thresholds_backup refinery-balance\data\thresholds.json >nul
+    if not exist data mkdir data
+    copy /y _thresholds_backup data\thresholds.json >nul
     del _thresholds_backup
 )
 
