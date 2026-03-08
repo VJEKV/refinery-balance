@@ -44,7 +44,15 @@ def health():
 
 # Production: раздача собранного React из frontend/dist
 import os
-DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+import sys
+
+def _get_dist_dir():
+    if getattr(sys, 'frozen', False):
+        # .exe в server/ → frontend/dist рядом
+        return os.path.join(os.path.dirname(os.path.dirname(sys.executable)), "frontend", "dist")
+    return os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+DIST_DIR = _get_dist_dir()
 if os.path.isdir(DIST_DIR):
     from fastapi.staticfiles import StaticFiles
     app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="static")

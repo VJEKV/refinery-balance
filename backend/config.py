@@ -1,7 +1,21 @@
 """Конфигурация проекта"""
 import os
+import sys
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _get_base_dir():
+    """Определяем корень проекта — работает и из .py, и из .exe.
+
+    Структура .exe:  НПЗ_МБ/server/server.exe → BASE_DIR = НПЗ_МБ/
+    Структура dev:   refinery-balance/backend/config.py → BASE_DIR = refinery-balance/
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller .exe лежит в server/ → поднимаемся на уровень выше
+        return os.path.dirname(os.path.dirname(sys.executable))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+BASE_DIR = _get_base_dir()
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 

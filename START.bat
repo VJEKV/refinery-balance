@@ -1,10 +1,9 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0refinery-balance\backend"
+cd /d "%~dp0"
 
 :: Убить старый процесс если висит
-taskkill /f /im python.exe >nul 2>&1
-taskkill /f /im pythonw.exe >nul 2>&1
+taskkill /f /im server.exe >nul 2>&1
 
 :: Проверить порт 8000 — если занят, подождать
 netstat -ano | findstr ":8000 " >nul 2>&1
@@ -14,7 +13,7 @@ if %errorlevel%==0 (
 )
 
 echo Запуск НПЗ Материальный Баланс...
-start /min "" "%~dp0python\python.exe" -m uvicorn main:app --host 127.0.0.1 --port 8000
+start /min "" "%~dp0server\server.exe"
 
 :: Ожидание запуска сервера
 ping -n 5 127.0.0.1 >nul

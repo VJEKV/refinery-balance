@@ -8,3 +8,6 @@ dist/
 .env
 .venv/
 *.log
+build/
+release/
+build_tmp/
