@@ -1,0 +1,51 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build server.exe
+        run: pyinstaller server.spec --distpath release --workpath build_tmp -y
+
+      - name: Assemble release
+        shell: cmd
+        run: |
+          if exist release\NPZ_MB rd /s /q release\NPZ_MB
+          mkdir release\NPZ_MB
+          mkdir release\NPZ_MB\data
+          mkdir release\NPZ_MB\frontend
+          xcopy /s /e /y /q release\server release\NPZ_MB\server\
+          xcopy /s /e /y /q frontend\dist release\NPZ_MB\frontend\dist\
+          copy /y START.bat release\NPZ_MB\
+          copy /y STOP.bat release\NPZ_MB\
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NPZ_MB
+          path: release/NPZ_MB/
+          retention-days: 30
