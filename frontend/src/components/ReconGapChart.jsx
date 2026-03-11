@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
+import { Info, ChevronDown, ChevronUp } from 'lucide-react'
 
 function TonnageLabel({ x, y, width, height, value }) {
   if (value == null || height < 18) return null
@@ -16,6 +18,8 @@ function TonnageLabel({ x, y, width, height, value }) {
 }
 
 export default function ReconGapChart({ reconData, threshold = 5, resolved }) {
+  const [showHelp, setShowHelp] = useState(false)
+
   if (!reconData || !reconData.dates || reconData.dates.length === 0) {
     return <div className="text-dark-muted text-sm p-4">Нет данных для ReconGap</div>
   }
@@ -41,6 +45,11 @@ export default function ReconGapChart({ reconData, threshold = 5, resolved }) {
     }
     return [pct, 'Δ']
   }
+
+  // Stats
+  const avgGap = data.reduce((s, d) => s + d.gap, 0) / data.length
+  const maxGap = Math.max(...data.map(d => d.gap))
+  const daysAboveThreshold = data.filter(d => d.gap > threshold).length
 
   return (
     <>
@@ -68,6 +77,47 @@ export default function ReconGapChart({ reconData, threshold = 5, resolved }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {/* Stats + help */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex gap-4 text-xs text-dark-muted" style={{ fontFamily }}>
+          <span>Среднее: {avgGap.toFixed(1)}%</span>
+          <span>Макс: {maxGap.toFixed(1)}%</span>
+          {daysAboveThreshold > 0 && <span className="text-accent-red">Выше порога: {daysAboveThreshold} дн.</span>}
+        </div>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className="flex items-center gap-1 text-xs text-dark-muted hover:text-accent-blue"
+        >
+          <Info size={13} />
+          {showHelp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+      </div>
+
+      {showHelp && (
+        <div className="mt-3 p-3 bg-dark-bg/50 border border-dark-border rounded-lg text-xs text-dark-muted space-y-2">
+          <p className="font-semibold text-dark-text">Как считается расхождение замер/согласованное</p>
+          <p>
+            Для каждого дня сравнивается суммарный поток по приборам (замеренное) с согласованным значением из отчёта.
+            Расхождение = |замеренное − согласованное| / |замеренное| × 100%.
+          </p>
+          <p>
+            <span className="text-accent-blue">До 3%</span> — нормальная погрешность приборов.<br/>
+            <span className="text-accent-yellow">3–5%</span> — повышенная погрешность, проверить калибровку.<br/>
+            <span className="text-accent-red">Выше {threshold}%</span> — критическое расхождение, возможна ошибка данных.
+          </p>
+          <p className="font-semibold text-accent-yellow">Риски</p>
+          <p>
+            Большие расхождения означают, что приборный учёт не совпадает с балансовым.
+            Причины: неисправность/дрейф приборов, ручные корректировки, ошибки ввода данных.
+          </p>
+          <p className="font-semibold text-accent-blue">Что запросить</p>
+          <p>
+            Акты калибровки и поверки приборов. Журнал ручных корректировок.
+            Протоколы согласования баланса за дни с высокими отклонениями.
+          </p>
+        </div>
+      )}
     </>
   )
 }

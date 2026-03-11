@@ -1,25 +1,28 @@
 import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
+import { X } from 'lucide-react'
 
 const CELL_MIN_H = 25
 
+/** Fixed color scale: green → yellow → red → dark maroon */
 function getHeatColor(pct) {
   if (pct <= 0) return '#064e3b'
   if (pct <= 2) {
     const t = pct / 2
-    return lerpColor('#064e3b', '#4ade80', t)
+    return lerpColor('#064e3b', '#16a34a', t)
   }
   if (pct <= 5) {
     const t = (pct - 2) / 3
-    return lerpColor('#fbbf24', '#f59e0b', t)
+    return lerpColor('#eab308', '#f59e0b', t)
   }
   if (pct <= 15) {
     const t = (pct - 5) / 10
-    return lerpColor('#f59e0b', '#ef4444', t)
+    return lerpColor('#f59e0b', '#dc2626', t)
   }
+  // >15%: red → dark maroon (DARKENS, not lightens)
   const t = Math.min((pct - 15) / 15, 1)
-  return lerpColor('#dc2626', '#f87171', t)
+  return lerpColor('#dc2626', '#4c0519', t)
 }
 
 function lerpColor(a, b, t) {
@@ -38,7 +41,6 @@ function lerpColor(a, b, t) {
 
 function textColor(bgPct) {
   if (bgPct <= 1) return '#a7f3d0'
-  if (bgPct <= 2) return '#ffffff'
   if (bgPct <= 4) return '#1e293b'
   return '#ffffff'
 }
@@ -48,19 +50,24 @@ function formatDay(dateStr) {
   return d.getDate()
 }
 
-export default function ReconHeatmap({ unitCode, direction, title }) {
+export default function ReconHeatmap({ unitCode, direction, title, dateParams = {} }) {
   const [mode, setMode] = useState('pct')
   const [tooltip, setTooltip] = useState(null)
+  const [selectedProducts, setSelectedProducts] = useState([])
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const containerRef = useRef(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['product-heatmap', unitCode, direction],
+    queryKey: ['product-heatmap', unitCode, direction, dateParams],
     queryFn: () =>
       api.get('/analytics/product-heatmap', {
-        params: { unit: unitCode, direction },
+        params: { unit: unitCode, direction, ...dateParams },
       }).then(r => r.data),
     enabled: !!unitCode,
   })
+
+  // All available products
+  const allProducts = useMemo(() => data?.products || [], [data])
 
   const sorted = useMemo(() => {
     if (!data || !data.products?.length) return null
@@ -77,10 +84,24 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
     }
   }, [data])
 
-  // Compute daily correction sums (measured - reconciled, signed)
-  const daySums = useMemo(() => {
+  // Apply product filter
+  const filtered = useMemo(() => {
     if (!sorted) return null
-    const { dates, values } = sorted
+    if (selectedProducts.length === 0) return sorted
+    const keep = new Set(selectedProducts)
+    const indices = sorted.products.map((_, i) => i).filter(i => keep.has(sorted.products[i]))
+    if (indices.length === 0) return sorted
+    return {
+      products: indices.map(i => sorted.products[i]),
+      dates: sorted.dates,
+      values: indices.map(i => sorted.values[i]),
+    }
+  }, [sorted, selectedProducts])
+
+  // Compute daily correction sums
+  const daySums = useMemo(() => {
+    if (!filtered) return null
+    const { dates, values } = filtered
     return dates.map((_, di) => {
       let sumTons = 0
       for (let pi = 0; pi < values.length; pi++) {
@@ -89,12 +110,18 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
       }
       return sumTons
     })
-  }, [sorted])
+  }, [filtered])
+
+  const toggleProduct = (p) => {
+    setSelectedProducts(prev =>
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    )
+  }
 
   if (isLoading) return <div className="text-dark-muted text-sm py-2">Загрузка тепловой карты...</div>
-  if (!sorted || sorted.products.length === 0) return null
+  if (!filtered || filtered.products.length === 0) return null
 
-  const { products, dates, values } = sorted
+  const { products, dates, values } = filtered
   const numProducts = products.length
   const cellH = numProducts <= 4 ? 36 : CELL_MIN_H
 
@@ -113,6 +140,9 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
       y: rect.top - containerRect.top - 8,
     })
   }
+
+  // Unselected products for dropdown
+  const unselectedProducts = allProducts.filter(p => !selectedProducts.includes(p))
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-3 w-full" ref={containerRef}>
@@ -136,6 +166,65 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
             тонны
           </button>
         </div>
+      </div>
+
+      {/* Product filter tags */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <span className="text-xs text-dark-muted mr-1">Продукты:</span>
+        {selectedProducts.map(p => (
+          <span
+            key={p}
+            className="inline-flex items-center gap-1 bg-accent-blue/20 text-accent-blue border border-accent-blue/30 rounded-full px-2 py-0.5 text-xs"
+          >
+            {p}
+            <button onClick={() => toggleProduct(p)} className="hover:text-white">
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <div className="relative">
+          <button
+            onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+            className="text-xs text-dark-muted hover:text-dark-text border border-dark-border rounded-full px-2 py-0.5"
+          >
+            {selectedProducts.length === 0 ? 'Все (фильтр)' : '+ добавить'}
+          </button>
+          {tagDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-30 bg-dark-card border border-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto min-w-[180px]">
+              {selectedProducts.length > 0 && (
+                <button
+                  onClick={() => { setSelectedProducts([]); setTagDropdownOpen(false) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-accent-blue hover:bg-white/5"
+                >
+                  Сбросить фильтр
+                </button>
+              )}
+              {unselectedProducts.map(p => (
+                <button
+                  key={p}
+                  onClick={() => { toggleProduct(p); setTagDropdownOpen(false) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-dark-text hover:bg-white/5 truncate"
+                >
+                  {p}
+                </button>
+              ))}
+              {unselectedProducts.length === 0 && (
+                <div className="px-3 py-1.5 text-xs text-dark-muted">Все продукты выбраны</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Color scale legend */}
+      <div className="flex items-center gap-1 mb-2 text-[10px] text-dark-muted">
+        <span>0%</span>
+        <div className="flex h-3 rounded overflow-hidden" style={{ width: 120 }}>
+          {[0, 1, 3, 7, 15, 25].map((v, i) => (
+            <div key={i} className="flex-1" style={{ backgroundColor: getHeatColor(v) }} />
+          ))}
+        </div>
+        <span>30%+</span>
       </div>
 
       <div className="overflow-x-auto relative w-full">
@@ -198,7 +287,7 @@ export default function ReconHeatmap({ unitCode, direction, title }) {
                 })}
               </tr>
             ))}
-            {/* Summary row: sum of corrections per day */}
+            {/* Summary row */}
             {daySums && (
               <tr className="border-t border-dark-border">
                 <td

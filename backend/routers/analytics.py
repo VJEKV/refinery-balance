@@ -213,6 +213,7 @@ def product_heatmap(
     direction: str = Query("inputs", description="inputs or outputs"),
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    month: Optional[int] = None,
 ):
     """Per-product measured vs reconciled matrix for heatmap."""
     u = store.get_unit(unit)
@@ -222,7 +223,7 @@ def product_heatmap(
         raise HTTPException(400, "direction must be 'inputs' or 'outputs'")
 
     unit_dates = u["dates"]
-    filtered = store.filter_dates(date_from, date_to)
+    filtered = store.filter_dates(date_from, date_to, month)
     target_dates = [d for d in (filtered if filtered else unit_dates) if d in unit_dates]
     if not target_dates:
         return {"products": [], "dates": [], "values": []}

@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts'
+import { Info, ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function ControlChart({ spcData, resolved }) {
+  const [showHelp, setShowHelp] = useState(false)
+
   if (!spcData || !spcData.dates || spcData.dates.length === 0) {
     return <div className="text-dark-muted text-sm p-4">Нет данных для SPC</div>
   }
@@ -18,6 +22,10 @@ export default function ControlChart({ spcData, resolved }) {
   const s3 = sigma * 3
   const tickStyle = { fill: colors.muted, fontSize: fontSize.axis, fontFamily }
   const refLabelSmall = fontSize.axis - 1
+
+  // Count violations
+  const violations2s = data.filter(d => d.zone > 2 && d.zone <= 3).length
+  const violations3s = data.filter(d => d.zone > 3).length
 
   return (
     <>
@@ -62,10 +70,48 @@ export default function ControlChart({ spcData, resolved }) {
           />
         </LineChart>
       </ResponsiveContainer>
-      <div className="flex gap-4 mt-2 text-xs text-dark-muted" style={{ fontFamily }}>
-        <span>μ = {mean.toFixed(1)} т</span>
-        <span>σ = {sigma.toFixed(1)} т</span>
+
+      {/* Stats + help toggle */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="flex gap-4 text-xs text-dark-muted" style={{ fontFamily }}>
+          <span>μ = {mean.toFixed(1)} т</span>
+          <span>σ = {sigma.toFixed(1)} т</span>
+          {violations3s > 0 && <span className="text-accent-red">За ±3σ: {violations3s} дн.</span>}
+          {violations2s > 0 && <span className="text-accent-yellow">За ±2σ: {violations2s} дн.</span>}
+        </div>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className="flex items-center gap-1 text-xs text-dark-muted hover:text-accent-blue"
+        >
+          <Info size={13} />
+          {showHelp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
       </div>
+
+      {showHelp && (
+        <div className="mt-3 p-3 bg-dark-bg/50 border border-dark-border rounded-lg text-xs text-dark-muted space-y-2">
+          <p className="font-semibold text-dark-text">Как считается SPC (контрольная карта)</p>
+          <p>
+            Для каждого дня рассчитывается дебаланс установки (вход − выход) в тоннах.
+            Среднее значение (μ) и стандартное отклонение (σ) вычисляются по всему периоду.
+          </p>
+          <p>
+            <span className="text-accent-green">Зелёная зона (±1σ)</span> — нормальная вариация процесса.<br/>
+            <span className="text-accent-yellow">Жёлтая зона (±2σ)</span> — повышенное отклонение, требует внимания.<br/>
+            <span className="text-accent-red">Красная зона (±3σ)</span> — критическое отклонение, вероятна аномалия.
+          </p>
+          <p className="font-semibold text-accent-yellow">Риски</p>
+          <p>
+            Точки за ±3σ указывают на возможные утечки, ошибки приборов, нештатные режимы.
+            Серии из 7+ точек по одну сторону от μ — скрытый сдвиг процесса.
+          </p>
+          <p className="font-semibold text-accent-blue">Что запросить</p>
+          <p>
+            Акты калибровки приборов учёта за дни с выбросами.
+            Журнал технологических режимов. Сводку по ремонтам.
+          </p>
+        </div>
+      )}
     </>
   )
 }

@@ -8,14 +8,16 @@ import CusumChart from '../components/CusumChart'
 import ChartWrapper from '../components/ChartWrapper'
 import ReconHeatmap from '../components/ReconHeatmap'
 import { ArrowLeft } from 'lucide-react'
+import { useDateFilter } from '../hooks/useDateFilter'
 
 export default function UnitDetailPage() {
   const { code } = useParams()
   const navigate = useNavigate()
+  const { dateParams } = useDateFilter()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['unit', code],
-    queryFn: () => api.get(`/units/${encodeURIComponent(code)}`).then(r => r.data),
+    queryKey: ['unit', code, dateParams],
+    queryFn: () => api.get(`/units/${encodeURIComponent(code)}`, { params: dateParams }).then(r => r.data),
   })
 
   if (isLoading) return <div className="text-dark-muted">Загрузка...</div>
@@ -69,6 +71,7 @@ export default function UnitDetailPage() {
         unitCode={code}
         direction="inputs"
         title="Расхождение замер/согл — Сырьё (входящие)"
+        dateParams={dateParams}
       />
 
       {/* 5. Тепловая карта — Продукция */}
@@ -76,6 +79,7 @@ export default function UnitDetailPage() {
         unitCode={code}
         direction="outputs"
         title="Расхождение замер/согл — Продукция (исходящие)"
+        dateParams={dateParams}
       />
     </div>
   )

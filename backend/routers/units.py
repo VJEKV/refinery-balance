@@ -1,5 +1,6 @@
 """GET /api/units, GET /api/units/{code}"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 
 from services.store import store
 from services.anomaly import (
@@ -26,14 +27,26 @@ def list_units():
 
 
 @router.get("/units/{code}")
-def get_unit(code: str):
+def get_unit(
+    code: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
     unit = store.get_unit(code)
     if not unit:
         raise HTTPException(404, f"Установка '{code}' не найдена")
 
     thresholds = _get_thresholds()
-    dates = unit["dates"]
+    all_unit_dates = unit["dates"]
     data = unit["data"]
+
+    # Apply date filter
+    filtered = store.filter_dates(date_from, date_to, month)
+    if filtered:
+        dates = [d for d in filtered if d in all_unit_dates]
+    else:
+        dates = all_unit_dates
     anomalies = detect_all(data, dates, thresholds)
 
     series = store.get_unit_series(code)
