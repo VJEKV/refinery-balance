@@ -9,13 +9,15 @@ import ReconGapChart from './ReconGapChart'
 import CusumChart from './CusumChart'
 import ReconHeatmap from './ReconHeatmap'
 import api from '../api/client'
+import { useDateFilter } from '../hooks/useDateFilter'
 
 export default function UnitCard({ unit, anomalies = [] }) {
   const [expanded, setExpanded] = useState(false)
   const navigate = useNavigate()
+  const { dateParams } = useDateFilter()
   const { data: detail, isLoading: detailLoading } = useQuery({
-    queryKey: ['unit', unit.code],
-    queryFn: () => api.get(`/units/${encodeURIComponent(unit.code)}`).then(r => r.data),
+    queryKey: ['unit', unit.code, dateParams],
+    queryFn: () => api.get(`/units/${encodeURIComponent(unit.code)}`, { params: dateParams }).then(r => r.data),
     enabled: expanded,
   })
 
@@ -162,11 +164,13 @@ export default function UnitCard({ unit, anomalies = [] }) {
                 unitCode={unit.code}
                 direction="inputs"
                 title="Расхождение замер/согл — Сырьё (входящие)"
+                dateParams={dateParams}
               />
               <ReconHeatmap
                 unitCode={unit.code}
                 direction="outputs"
                 title="Расхождение замер/согл — Продукция (исходящие)"
+                dateParams={dateParams}
               />
 
               {unitAnomalies.length > 0 && (

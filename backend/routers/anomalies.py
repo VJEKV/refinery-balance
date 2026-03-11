@@ -62,6 +62,97 @@ def list_anomalies(
     return anomalies
 
 
+@router.get("/downtime-details")
+def downtime_details(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
+    """Расширенная аналитика простоев: данные за текущий и прошлые периоды."""
+    import numpy as np
+
+    thresholds = _get_thresholds()
+    filtered_dates = store.filter_dates(date_from, date_to, month)
+    target_dates = filtered_dates if filtered_dates else store.dates
+    if not target_dates:
+        return {"events": [], "unit_stats": []}
+
+    target_set = set(target_dates)
+    events = []
+    unit_stats = []
+
+    for code, unit_info in store.units.items():
+        data = unit_info["data"]
+        unit_dates = unit_info["dates"]
+        consumed = data["summary"]["consumed"]["measured"]
+        produced = data["summary"]["produced"]["measured"]
+
+        # Средняя выработка за ВСЕ рабочие дни (базовый период)
+        working_consumed = [consumed[i] for i, d in enumerate(unit_dates)
+                           if i < len(consumed) and consumed[i] >= 1.0]
+        working_produced = [produced[i] for i, d in enumerate(unit_dates)
+                           if i < len(produced) and produced[i] >= 1.0]
+        avg_consumed = float(np.mean(working_consumed)) if working_consumed else 0
+        avg_produced = float(np.mean(working_produced)) if working_produced else 0
+
+        downtime_days = []
+        low_load_days = []
+
+        for i, d in enumerate(unit_dates):
+            if d not in target_set:
+                continue
+            if i >= len(consumed):
+                break
+            c = consumed[i]
+            p = produced[i] if i < len(produced) else 0
+
+            is_full_stop = c < 1.0 and p < 1.0
+            is_low = avg_consumed > 0 and c < avg_consumed * 0.5
+
+            if is_full_stop or is_low:
+                lost_input = max(0, avg_consumed - c)
+                lost_output = max(0, avg_produced - p)
+                event = {
+                    "date": d.isoformat(),
+                    "unit": code,
+                    "unit_name": unit_info["name"],
+                    "type": "stop" if is_full_stop else "low_load",
+                    "consumed": round(c, 1),
+                    "produced": round(p, 1),
+                    "avg_consumed": round(avg_consumed, 1),
+                    "avg_produced": round(avg_produced, 1),
+                    "lost_input_tons": round(lost_input, 1),
+                    "lost_output_tons": round(lost_output, 1),
+                    "load_pct": round(c / avg_consumed * 100, 1) if avg_consumed > 0 else 0,
+                }
+                events.append(event)
+                if is_full_stop:
+                    downtime_days.append(d)
+                else:
+                    low_load_days.append(d)
+
+        if downtime_days or low_load_days:
+            total_lost_input = sum(max(0, avg_consumed - consumed[unit_dates.index(d)])
+                                   for d in downtime_days + low_load_days
+                                   if d in unit_dates and unit_dates.index(d) < len(consumed))
+            total_lost_output = sum(max(0, avg_produced - (produced[unit_dates.index(d)]
+                                   if unit_dates.index(d) < len(produced) else 0))
+                                   for d in downtime_days + low_load_days if d in unit_dates)
+            unit_stats.append({
+                "unit": code,
+                "unit_name": unit_info["name"],
+                "stop_days": len(downtime_days),
+                "low_load_days": len(low_load_days),
+                "avg_consumed": round(avg_consumed, 1),
+                "avg_produced": round(avg_produced, 1),
+                "total_lost_input": round(total_lost_input, 1),
+                "total_lost_output": round(total_lost_output, 1),
+            })
+
+    events.sort(key=lambda e: (e["date"], e["unit"]))
+    return {"events": events, "unit_stats": unit_stats}
+
+
 @router.get("/summary")
 def anomaly_summary(
     date_from: Optional[str] = None,

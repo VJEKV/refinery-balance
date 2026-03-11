@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import api from '../api/client'
 import EventLog from '../components/EventLog'
-import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch, Download, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch, Download, Info } from 'lucide-react'
 import { useDateFilter } from '../hooks/useDateFilter'
+import * as XLSX from 'xlsx'
 
 const methodConfig = {
   balance_closure: {
@@ -11,71 +12,73 @@ const methodConfig = {
     icon: AlertTriangle,
     color: 'text-accent-red',
     bg: 'bg-accent-red/10',
-    description: 'Дебаланс входа и выхода превышает допустимый порог. Разница между поступившим и выпущенным продуктом указывает на потери, утечки или ошибки учёта.',
+    description: 'Разница между поступившим сырьём и выпущенной продукцией больше допустимого. Возможные причины: неучтённые потери, ошибки замеров, нештатные сбросы.',
   },
   recon_gap: {
-    label: 'Прибор/Согласов.',
+    label: 'Расхождение замер/отчёт',
     icon: BarChart3,
     color: 'text-accent-yellow',
     bg: 'bg-accent-yellow/10',
-    description: 'Расхождение между показаниями приборов и согласованным балансом. Большой разрыв может означать дрейф приборов или ручные корректировки.',
+    description: 'Показания приборов не совпадают с данными из согласованного баланса. Причины: неточность приборов, ручные корректировки, ошибки ввода данных.',
   },
   spc: {
-    label: 'SPC',
+    label: 'Выход за норму',
     icon: Activity,
     color: 'text-accent-blue',
     bg: 'bg-accent-blue/10',
-    description: 'Статистический контроль процесса. Значения дебаланса выходят за контрольные границы ±2σ или ±3σ от среднего.',
+    description: 'Значение вышло за допустимые границы нормального отклонения. Это значит, что процесс работает нестабильно — нужно проверить оборудование и режимы.',
   },
   cusum: {
-    label: 'CUSUM',
+    label: 'Устойчивый сдвиг',
     icon: TrendingUp,
     color: 'text-accent-purple',
     bg: 'bg-accent-purple/10',
-    description: 'Кумулятивная сумма отклонений. Выявляет устойчивый сдвиг (тренд) в процессе, который не виден на обычном графике.',
+    description: 'Накопленные отклонения показывают, что процесс систематически сместился. Это не разовый скачок, а постоянное изменение — нужно искать причину.',
   },
   downtime: {
     label: 'Простой',
     icon: Clock,
     color: 'text-dark-muted',
     bg: 'bg-white/5',
-    description: 'Дни, когда установка не работала — входной и выходной потоки близки к нулю (<1 т).',
+    description: 'Установка не работала или работала с минимальной загрузкой. Входной и выходной потоки близки к нулю или значительно ниже среднего уровня.',
   },
   cross_unit: {
-    label: 'Межцеховой',
+    label: 'Между установками',
     icon: GitBranch,
     color: 'text-accent-green',
     bg: 'bg-accent-green/10',
-    description: 'Несовпадение потоков между связанными установками. Выход одной установки не совпадает с входом другой.',
+    description: 'Количество продукта на выходе одной установки не совпадает с количеством на входе следующей. Возможны потери при передаче или ошибки учёта.',
   },
 }
 
-function exportCSV(anomalies) {
+const methodLabels = {
+  balance_closure: 'Потери и утечки',
+  recon_gap: 'Расхождение замер/отчёт',
+  spc: 'Выход за норму',
+  cusum: 'Устойчивый сдвиг',
+  downtime: 'Простой',
+  cross_unit: 'Между установками',
+}
+
+function exportExcel(anomalies) {
   if (!anomalies || anomalies.length === 0) return
-  const headers = ['Дата', 'Установка', 'Метод', 'Описание', 'Значение', 'Порог', 'Уровень']
-  const methodLabels = {
-    balance_closure: 'Потери и утечки',
-    recon_gap: 'Прибор/Согласов.',
-    spc: 'SPC', cusum: 'CUSUM',
-    downtime: 'Простой', cross_unit: 'Межцеховой',
-  }
-  const rows = anomalies.map(a => [
-    a.date,
-    a.unit_name || '',
-    methodLabels[a.method] || a.method,
-    `"${(a.description || '').replace(/"/g, '""')}"`,
-    a.value,
-    a.threshold,
-    a.severity === 'critical' ? 'Критично' : a.severity === 'warn' ? 'Внимание' : a.severity,
-  ])
-  const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n')
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `anomalies_${new Date().toISOString().slice(0, 10)}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  const rows = anomalies.map(a => ({
+    'Дата': a.date,
+    'Установка': a.unit_name || '',
+    'Тип аномалии': methodLabels[a.method] || a.method,
+    'Описание': a.description || '',
+    'Значение': a.value,
+    'Порог': a.threshold,
+    'Уровень': a.severity === 'critical' ? 'Критично' : a.severity === 'warn' ? 'Внимание' : a.severity,
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  // Ширина колонок
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 30 }, { wch: 22 }, { wch: 60 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Аномалии')
+  XLSX.writeFile(wb, `Аномалии_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export default function AnomaliesPage() {
@@ -101,20 +104,16 @@ export default function AnomaliesPage() {
     },
   })
 
-  // Get unique units from anomalies for filter dropdown
-  const unitOptions = useMemo(() => {
-    if (!anomalies) return []
-    const units = new Map()
-    anomalies.forEach(a => {
-      if (a.unit && a.unit_name) units.set(a.unit, a.unit_name)
-    })
-    return [...units.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [anomalies])
-
-  // We need unfiltered anomalies for unit list — use separate query
+  // Unfiltered anomalies for unit dropdown
   const { data: allAnomalies } = useQuery({
     queryKey: ['anomaliesAll', dateParams],
     queryFn: () => api.get('/anomalies', { params: dateParams }).then(r => r.data),
+  })
+
+  // Downtime details
+  const { data: downtimeData } = useQuery({
+    queryKey: ['downtimeDetails', dateParams],
+    queryFn: () => api.get('/anomalies/downtime-details', { params: dateParams }).then(r => r.data),
   })
 
   const allUnitOptions = useMemo(() => {
@@ -124,14 +123,6 @@ export default function AnomaliesPage() {
       if (a.unit && a.unit_name) units.set(a.unit, a.unit_name)
     })
     return [...units.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-  }, [allAnomalies])
-
-  // Downtime list
-  const downtimeList = useMemo(() => {
-    if (!allAnomalies) return []
-    return allAnomalies
-      .filter(a => a.method === 'downtime')
-      .sort((a, b) => a.date.localeCompare(b.date))
   }, [allAnomalies])
 
   return (
@@ -222,12 +213,12 @@ export default function AnomaliesPage() {
         )}
         <div className="flex-1" />
         <button
-          onClick={() => exportCSV(anomalies)}
+          onClick={() => exportExcel(anomalies)}
           disabled={!anomalies || anomalies.length === 0}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download size={14} />
-          Экспорт CSV
+          Выгрузить в Excel
         </button>
       </div>
 
@@ -236,32 +227,109 @@ export default function AnomaliesPage() {
         <EventLog anomalies={anomalies || []} />
       </div>
 
-      {/* Downtime section */}
-      {downtimeList.length > 0 && (
-        <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-dark-text mb-3 flex items-center gap-2">
-            <Clock size={16} className="text-dark-muted" />
-            Простои по дням ({downtimeList.length})
+      {/* Downtime card */}
+      {downtimeData && (downtimeData.events?.length > 0 || downtimeData.unit_stats?.length > 0) && (
+        <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-dark-text flex items-center gap-2">
+            <Clock size={16} className="text-accent-yellow" />
+            Анализ простоев и снижения загрузки
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-dark-border text-left text-dark-muted">
-                  <th className="px-3 py-2">Дата</th>
-                  <th className="px-3 py-2">Установка</th>
-                  <th className="px-3 py-2">Описание</th>
-                </tr>
-              </thead>
-              <tbody>
-                {downtimeList.map((d, i) => (
-                  <tr key={i} className="border-b border-dark-border/50 hover:bg-white/5">
-                    <td className="px-3 py-2 whitespace-nowrap text-dark-text">{d.date}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-dark-text">{d.unit_name || '—'}</td>
-                    <td className="px-3 py-2 text-dark-muted">{d.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Unit stats summary */}
+          {downtimeData.unit_stats?.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-dark-muted mb-2">Сводка по установкам</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-dark-border text-left text-dark-muted text-xs">
+                      <th className="px-3 py-2">Установка</th>
+                      <th className="px-3 py-2 text-right">Полных простоев</th>
+                      <th className="px-3 py-2 text-right">Сниженная загрузка</th>
+                      <th className="px-3 py-2 text-right">Обычная загрузка (т/день)</th>
+                      <th className="px-3 py-2 text-right">Обычный выпуск (т/день)</th>
+                      <th className="px-3 py-2 text-right">Недополучено сырья (т)</th>
+                      <th className="px-3 py-2 text-right">Недовыпущено продукции (т)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {downtimeData.unit_stats.map((s, i) => (
+                      <tr key={i} className="border-b border-dark-border/50 hover:bg-white/5">
+                        <td className="px-3 py-2 text-dark-text font-medium">{s.unit_name}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red font-semibold">{s.stop_days} дн.</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-yellow">{s.low_load_days} дн.</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{s.avg_consumed.toLocaleString('ru-RU')}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{s.avg_produced.toLocaleString('ru-RU')}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{s.total_lost_input.toLocaleString('ru-RU')}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{s.total_lost_output.toLocaleString('ru-RU')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Daily events */}
+          {downtimeData.events?.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-dark-muted mb-2">Журнал событий по дням ({downtimeData.events.length})</h3>
+              <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-dark-card">
+                    <tr className="border-b border-dark-border text-left text-dark-muted text-xs">
+                      <th className="px-3 py-2">Дата</th>
+                      <th className="px-3 py-2">Установка</th>
+                      <th className="px-3 py-2">Тип</th>
+                      <th className="px-3 py-2 text-right">Загрузка (т)</th>
+                      <th className="px-3 py-2 text-right">Выпуск (т)</th>
+                      <th className="px-3 py-2 text-right">% от нормы</th>
+                      <th className="px-3 py-2 text-right">Потери сырья (т)</th>
+                      <th className="px-3 py-2 text-right">Потери продукции (т)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {downtimeData.events.map((e, i) => (
+                      <tr key={i} className="border-b border-dark-border/50 hover:bg-white/5">
+                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.date}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.unit_name}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            e.type === 'stop'
+                              ? 'bg-accent-red/10 text-accent-red'
+                              : 'bg-accent-yellow/10 text-accent-yellow'
+                          }`}>
+                            {e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{e.consumed}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{e.produced}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          <span className={e.load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>
+                            {e.load_pct}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{e.lost_input_tons}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{e.lost_output_tons}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Recommendation */}
+          <div className="p-3 bg-dark-bg/50 border border-dark-border rounded-lg text-xs text-dark-muted space-y-1.5">
+            <p className="font-semibold text-accent-blue">Рекомендации</p>
+            <p>Запросите у технологической службы причины простоев и снижения загрузки за указанные даты:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li>Акты остановки/пуска оборудования</li>
+              <li>Заявки на ремонт и графики ТО</li>
+              <li>Журнал технологических нарушений</li>
+              <li>Сведения о качестве поступившего сырья</li>
+              <li>Ограничения по приёму/отгрузке продукции</li>
+            </ul>
           </div>
         </div>
       )}
