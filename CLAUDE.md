@@ -30,7 +30,7 @@
 | 6 | `backend/routers/upload.py` | POST /api/upload, GET /api/files, DELETE /api/files/{name} |
 | 7 | `backend/routers/units.py` | GET /api/units, GET /api/units/{code} (детализация с SPC/CUSUM/ReconGap, фильтр по дате: date_from/date_to/month) |
 | 8 | `backend/routers/analytics.py` | GET /api/analytics/overview, /heatmap, /product-heatmap (с month), /daily, /weekly, /monthly, /yearly |
-| 9 | `backend/routers/anomalies.py` | GET /api/anomalies (фильтры по unit/method/severity/date), /summary, /downtime-details (расширенная аналитика простоев) |
+| 9 | `backend/routers/anomalies.py` | GET /api/anomalies (фильтры по unit/method/severity/date), /summary, /downtime-details (события с начало/конец/дни/обоснование, фильтр по unit) |
 | 10 | `backend/routers/sankey.py` | GET /api/sankey?date=...&type=measured|reconciled, /monthly |
 | 11 | `backend/routers/settings.py` | GET/PUT /api/settings/thresholds, POST /reset |
 | 12 | `backend/main.py` | FastAPI app + CORS + lifespan + роутеры + раздача frontend/dist (production) |
@@ -45,7 +45,7 @@
 | 4 | `src/components/Layout.jsx` | Sidebar + Header + Content |
 | 5 | `src/components/Sidebar.jsx` | Навигация + фильтр дат (месяцы/range) + методы с описаниями и слайдерами порогов |
 | 6 | `src/components/KPICard.jsx` | Плашка: label + value + unit + trend |
-| 7 | `src/components/UnitCard.jsx` | Карточка установки с аккордеоном (план, дельта, графики, продукты). Передаёт dateParams в тепловые карты |
+| 7 | `src/components/UnitCard.jsx` | Карточка установки: план/факт, кликабельные бейджи аномалий по типам → аккордеон с таблицей и Excel-выгрузкой, простои с начало/конец/дни/обоснование |
 | 8 | `src/components/StatusBadge.jsx` | Норма/Внимание/Критично/Простой |
 | 9 | `src/components/ControlChart.jsx` | SPC: линия + зоны ±2σ/±3σ + цветные точки + раскрывающееся описание (риски, что запросить) |
 | 10 | `src/components/ReconGapChart.jsx` | Столбцы Δ% по дням + статистика + раскрывающееся описание |
@@ -56,7 +56,7 @@
 | 15 | `src/components/DonutChart.jsx` | Canvas-бублик (изм/согл/отклонение) |
 | 16 | `src/components/SankeyDiagram.jsx` | D3 Sankey потоков между установками |
 | 17 | `src/components/EventLog.jsx` | Таблица аномалий |
-| 18 | `src/pages/OverviewPage.jsx` | KPI + сетка карточек установок + heatmap |
+| 18 | `src/pages/OverviewPage.jsx` | KPI + карточки аномалий по методам (клик → фильтрация установок) + сетка карточек установок + heatmap |
 | 19 | `src/pages/UnitDetailPage.jsx` | KPI + SPC + CUSUM + ReconGap + продукты. Использует глобальный dateParams |
 | 20 | `src/pages/AnomaliesPage.jsx` | 6 карточек методов (с описаниями) + фильтры (установка/уровень/метод) + экспорт Excel (.xlsx) + карточка простоев с аналитикой выработки |
 | 21 | `src/pages/SankeyPage.jsx` | Sankey + выбор даты + таблица потерь |
@@ -78,13 +78,23 @@
 | `STOP.bat` | Остановка server.exe |
 | `UPDATE.bat` | Обновление с GitHub (сохраняет data/ и thresholds.json) |
 | `start.sh` | Запуск dev (Linux) |
+| `.github/workflows/build-exe.yml` | GitHub Actions: сборка Windows .exe на windows-latest (workflow_dispatch) |
+| `NPZ_MB.zip` | Собранный архив с server.exe + frontend/dist + батники (39 МБ) |
 | `.gitignore` | data/*.xlsm, node_modules, __pycache__, dist, build/, release/ |
 
 ---
 
 ## Запуск на локальном ПК (без установки Python)
 
-### Сборка .exe (один раз)
+### Вариант 1: Скачать готовый архив
+1. Скачать `NPZ_MB.zip` из репозитория (собран через GitHub Actions)
+2. Распаковать на флешку/SSD
+
+### Вариант 2: Собрать через GitHub Actions
+1. GitHub → Actions → «Build Windows EXE» → Run workflow
+2. Скачать артефакт `NPZ_MB` после сборки
+
+### Вариант 3: Собрать локально
 1. Скачать репо с GitHub
 2. Установить Python 3.11+ (только для сборки)
 3. Запустить `BUILD.bat` — создаст папку `release\НПЗ_МБ\`
@@ -170,11 +180,22 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 - Статистика нарушений прямо под графиком (количество дней за нормой, средние, максимумы)
 - Все тексты написаны понятным языком без технического жаргона
 
-### Карточка простоев
-- Новый эндпоинт GET /api/anomalies/downtime-details
-- Сводка по установкам: полные простои, сниженная загрузка, обычная выработка, потери в тоннах
-- Журнал событий по дням: тип, загрузка, % от нормы, потери
+### Карточки аномалий на обзорной странице
+- Под KPI — 6 карточек аномалий по методам (потери, расхождение, выход за норму, сдвиг, простой, межцеховой)
+- Клик по карточке → установки фильтруются, показываются только с этим типом аномалий
+- В карточке установки — кликабельные бейджи аномалий по типам → раскрывают аккордеон с деталями
+
+### Простои с группировкой в события
+- GET /api/anomalies/downtime-details — последовательные дни группируются в события
+- Каждое событие: начало, конец, количество дней, обоснование (автоматическое)
+- Потери в тоннах (сырьё + продукция), % от нормы
+- Excel-выгрузка простоев по каждой установке
 - Рекомендации: какие документы запросить у технологов
+
+### Аккордеоны аномалий в карточках установок
+- Каждый тип аномалий (потери, расхождение, SPC, CUSUM, простои, межцеховой) имеет свой аккордеон
+- Таблица событий + кнопка «Excel» для выгрузки
+- При клике на карточку метода на KPI → в карточках установок открывается только этот аккордеон
 
 ### Фильтр продуктов на тепловых картах
 - ReconHeatmap: теги-чипы для мультивыбора продуктов
