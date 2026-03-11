@@ -23,14 +23,14 @@
 | # | Файл | Что делает |
 |---|------|------------|
 | 1 | `backend/services/store.py` | DataStore — загрузка всех .xlsm в RAM, merge по product (groupby, без дубликатов и NaN) |
-| 2 | `backend/services/anomaly.py` | 6 детекторов: balance_closure, recon_gap, spc, cusum, downtime, cross_unit |
+| 2 | `backend/services/anomaly.py` | 6 детекторов: balance_closure, recon_gap, spc, cusum, downtime, cross_unit. Понятные описания без жаргона |
 | 3 | `backend/services/sankey_builder.py` | Граф потоков: связывание outputs→inputs по имени продукта, внешние узлы, потери |
 | 4 | `backend/services/aggregator.py` | Агрегации daily→weekly→monthly→yearly через pandas groupby |
 | 5 | `backend/services/product_recon.py` | Анализ расхождений по продуктам (gaps_pct, gaps_tons) |
 | 6 | `backend/routers/upload.py` | POST /api/upload, GET /api/files, DELETE /api/files/{name} |
-| 7 | `backend/routers/units.py` | GET /api/units, GET /api/units/{code} (детализация с SPC/CUSUM/ReconGap) |
-| 8 | `backend/routers/analytics.py` | GET /api/analytics/overview, /heatmap, /product-heatmap, /daily, /weekly, /monthly, /yearly |
-| 9 | `backend/routers/anomalies.py` | GET /api/anomalies (фильтры), GET /api/anomalies/summary |
+| 7 | `backend/routers/units.py` | GET /api/units, GET /api/units/{code} (детализация с SPC/CUSUM/ReconGap, фильтр по дате: date_from/date_to/month) |
+| 8 | `backend/routers/analytics.py` | GET /api/analytics/overview, /heatmap, /product-heatmap (с month), /daily, /weekly, /monthly, /yearly |
+| 9 | `backend/routers/anomalies.py` | GET /api/anomalies (фильтры по unit/method/severity/date), /summary, /downtime-details (расширенная аналитика простоев) |
 | 10 | `backend/routers/sankey.py` | GET /api/sankey?date=...&type=measured|reconciled, /monthly |
 | 11 | `backend/routers/settings.py` | GET/PUT /api/settings/thresholds, POST /reset |
 | 12 | `backend/main.py` | FastAPI app + CORS + lifespan + роутеры + раздача frontend/dist (production) |
@@ -45,20 +45,20 @@
 | 4 | `src/components/Layout.jsx` | Sidebar + Header + Content |
 | 5 | `src/components/Sidebar.jsx` | Навигация + фильтр дат (месяцы/range) + методы с описаниями и слайдерами порогов |
 | 6 | `src/components/KPICard.jsx` | Плашка: label + value + unit + trend |
-| 7 | `src/components/UnitCard.jsx` | Карточка установки с аккордеоном (план, дельта, графики, продукты) |
+| 7 | `src/components/UnitCard.jsx` | Карточка установки с аккордеоном (план, дельта, графики, продукты). Передаёт dateParams в тепловые карты |
 | 8 | `src/components/StatusBadge.jsx` | Норма/Внимание/Критично/Простой |
-| 9 | `src/components/ControlChart.jsx` | SPC: линия + зоны ±2σ/±3σ + цветные точки |
-| 10 | `src/components/ReconGapChart.jsx` | Столбцы Δ% по дням |
-| 11 | `src/components/CusumChart.jsx` | Линия CUSUM + порог H |
-| 12 | `src/components/ReconHeatmap.jsx` | Тепловая карта расхождений по продуктам |
+| 9 | `src/components/ControlChart.jsx` | SPC: линия + зоны ±2σ/±3σ + цветные точки + раскрывающееся описание (риски, что запросить) |
+| 10 | `src/components/ReconGapChart.jsx` | Столбцы Δ% по дням + статистика + раскрывающееся описание |
+| 11 | `src/components/CusumChart.jsx` | Линия CUSUM + порог H + статистика превышений + раскрывающееся описание |
+| 12 | `src/components/ReconHeatmap.jsx` | Тепловая карта расхождений по продуктам + фильтр продуктов (теги-чипы) + исправленная цветовая шкала (зелёный→бордовый) + dateParams |
 | 13 | `src/components/HeatmapChart.jsx` | SVG heatmap загрузки установок по дням |
 | 14 | `src/components/AnomalyBarChart.jsx` | Стек аномалий по методам |
 | 15 | `src/components/DonutChart.jsx` | Canvas-бублик (изм/согл/отклонение) |
 | 16 | `src/components/SankeyDiagram.jsx` | D3 Sankey потоков между установками |
 | 17 | `src/components/EventLog.jsx` | Таблица аномалий |
 | 18 | `src/pages/OverviewPage.jsx` | KPI + сетка карточек установок + heatmap |
-| 19 | `src/pages/UnitDetailPage.jsx` | KPI + SPC + CUSUM + ReconGap + продукты |
-| 20 | `src/pages/AnomaliesPage.jsx` | 6 карточек методов + журнал событий |
+| 19 | `src/pages/UnitDetailPage.jsx` | KPI + SPC + CUSUM + ReconGap + продукты. Использует глобальный dateParams |
+| 20 | `src/pages/AnomaliesPage.jsx` | 6 карточек методов (с описаниями) + фильтры (установка/уровень/метод) + экспорт Excel (.xlsx) + карточка простоев с аналитикой выработки |
 | 21 | `src/pages/SankeyPage.jsx` | Sankey + выбор даты + таблица потерь |
 | 22 | `src/pages/UploadPage.jsx` | Drag&drop загрузка |
 | 23 | `src/hooks/useDateFilter.jsx` | Глобальный контекст фильтра дат |
@@ -69,7 +69,7 @@
 | Файл | Что |
 |------|-----|
 | `requirements.txt` | fastapi uvicorn openpyxl pandas numpy python-multipart aiofiles |
-| `frontend/package.json` | React 18 + Vite + Recharts + D3 + TanStack Query + Lucide |
+| `frontend/package.json` | React 18 + Vite + Recharts + D3 + TanStack Query + Lucide + xlsx |
 | `deploy/nginx.conf` | static + proxy (VPS) |
 | `deploy/refinery.service` | systemd (VPS) |
 | `server.spec` | PyInstaller — конфигурация сборки .exe |
@@ -156,6 +156,39 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 Тёмная тема ARCTIC DARK: #050a18 фон, #0c1529 карточки, #1e293b границы, #e2e8f0 текст.
 Акценты: #3b82f6 синий, #f59e0b жёлтый, #4ade80 зелёный, #f87171 красный, #a855f7 фиолетовый, #22d3ee циан.
 Шрифт Inter. Иконки Lucide. 5 палитр графиков (classic, ocean, earth, cyberpunk, synthwave).
+
+## Последние доработки (март 2026)
+
+### Глобальный фильтр дат
+- Фильтр из Sidebar (месяц / диапазон дат) теперь применяется ко ВСЕМ страницам и компонентам
+- Backend: `units.py` GET /api/units/{code} принимает date_from/date_to/month
+- Backend: `analytics.py` product-heatmap принимает month
+- Frontend: UnitDetailPage и UnitCard передают dateParams в запросы и в ReconHeatmap
+
+### Аналитика с описаниями
+- ControlChart, CusumChart, ReconGapChart — раскрывающиеся панели (ℹ): что показывает график, на что обратить внимание, что запросить
+- Статистика нарушений прямо под графиком (количество дней за нормой, средние, максимумы)
+- Все тексты написаны понятным языком без технического жаргона
+
+### Карточка простоев
+- Новый эндпоинт GET /api/anomalies/downtime-details
+- Сводка по установкам: полные простои, сниженная загрузка, обычная выработка, потери в тоннах
+- Журнал событий по дням: тип, загрузка, % от нормы, потери
+- Рекомендации: какие документы запросить у технологов
+
+### Фильтр продуктов на тепловых картах
+- ReconHeatmap: теги-чипы для мультивыбора продуктов
+- Работает и на странице установки, и внутри карточек на обзорной странице
+
+### Цветовая шкала
+- Исправлена: зелёный → жёлтый → красный → тёмно-бордовый (при высоких отклонениях цвет темнеет)
+
+### Фильтрация и экспорт аномалий
+- Фильтры: по установке, по уровню (критично/внимание), по методу
+- Экспорт в Excel (.xlsx) с основными данными
+- Описание каждого метода аномалий на карточках (ℹ)
+
+---
 
 ## Критически важно
 - **НЕ переписывай parser.py** — он работает и протестирован
