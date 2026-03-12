@@ -182,6 +182,22 @@ class DataStore:
     def get_all_dates(self) -> List[str]:
         return [d.isoformat() for d in self.dates]
 
+    def extract_filtered_data(self, unit_data: Dict, all_dates: List[date], target_dates: List[date]) -> Dict:
+        """Extract summary data for target_dates with proper index alignment."""
+        target_set = set(target_dates)
+        indices = [i for i, d in enumerate(all_dates) if d in target_set]
+        filtered = {
+            "inputs": unit_data.get("inputs"),
+            "outputs": unit_data.get("outputs"),
+            "summary": {},
+        }
+        for key in ("consumed", "produced", "imbalance", "imbalance_rel"):
+            filtered["summary"][key] = {}
+            for stream in ("measured", "reconciled"):
+                arr = unit_data["summary"][key][stream]
+                filtered["summary"][key][stream] = [arr[i] for i in indices if i < len(arr)]
+        return filtered
+
     def get_available_months(self) -> List[int]:
         """Return sorted list of month numbers (1-12) that have data."""
         return sorted(set(d.month for d in self.dates))

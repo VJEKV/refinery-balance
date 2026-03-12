@@ -4,7 +4,7 @@ from typing import Optional
 
 from services.store import store
 from services.anomaly import (
-    detect_all, get_spc_data, get_cusum_data, get_recon_gap_data
+    detect_all, get_spc_data, get_recon_gap_data
 )
 from services.product_recon import get_product_recon_gaps
 from config import DEFAULT_THRESHOLDS, THRESHOLDS_FILE
@@ -57,11 +57,11 @@ def get_unit(
     elif has_filter and not dates:
         anomalies = []
 
-    # SPC/CUSUM/ReconGap — compute on FULL data for correct statistics
+    # SPC/ReconGap — compute on filtered data for correct chart display
     series = store.get_unit_series(code)
-    spc_data = get_spc_data(data, all_unit_dates)
-    cusum_data = get_cusum_data(data, all_unit_dates, thresholds)
-    recon_data = get_recon_gap_data(data, all_unit_dates)
+    filtered_data = store.extract_filtered_data(data, all_unit_dates, target_dates)
+    spc_data = get_spc_data(filtered_data, target_dates)
+    recon_data = get_recon_gap_data(filtered_data, target_dates)
 
     # Products with totals over filtered period
     target_dates = dates if dates else all_unit_dates
@@ -126,7 +126,6 @@ def get_unit(
         },
         "series": series,
         "spc": spc_data,
-        "cusum": cusum_data,
         "recon_gap": recon_data,
         "products": products,
         "product_recon": product_recon,

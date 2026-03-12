@@ -38,7 +38,6 @@ DEFAULT_THRESHOLDS = {
     "balance_closure": 3.0,
     "recon_gap": 5.0,
     "spc_sigma": 3.0,
-    "cusum_drift": 5.0,
     "downtime_pct": 10.0,
     "cross_unit": 5.0,
 }

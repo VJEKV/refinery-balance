@@ -6,15 +6,45 @@ import UnitCard from '../components/UnitCard'
 import HeatmapChart from '../components/HeatmapChart'
 import AnomalyBarChart from '../components/AnomalyBarChart'
 import { useDateFilter } from '../hooks/useDateFilter'
-import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, BarChart3, Activity, Clock, GitBranch, ChevronDown, ChevronUp, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const methodConfig = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10' },
   recon_gap: { label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow', bg: 'bg-accent-yellow/10' },
   spc: { label: 'Нетипичные дни', icon: Activity, color: 'text-accent-blue', bg: 'bg-accent-blue/10' },
-  cusum: { label: 'Скрытый тренд', icon: TrendingUp, color: 'text-accent-purple', bg: 'bg-accent-purple/10' },
   downtime: { label: 'Простой', icon: Clock, color: 'text-dark-muted', bg: 'bg-white/5' },
   cross_unit: { label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green', bg: 'bg-accent-green/10' },
+}
+
+function exportOverviewExcel(anomalies, methodKey) {
+  if (!anomalies || anomalies.length === 0) return
+  const label = methodConfig[methodKey]?.label || methodKey
+  const rows = anomalies.map(a => {
+    const row = { 'Дата': a.date, 'Установка': a.unit_name || '' }
+    if (a.input_measured != null) {
+      row['Вход изм (т)'] = a.input_measured
+      row['Вход согл (т)'] = a.input_reconciled
+      row['Выход изм (т)'] = a.output_measured
+      row['Выход согл (т)'] = a.output_reconciled
+      row['Δ (т)'] = a.delta_tons
+      row['Δ (% от изм)'] = a.delta_pct
+    }
+    if (a.consumed != null) {
+      row['Загрузка (т)'] = a.consumed
+      row['Выпуск (т)'] = a.produced
+      row['Среднее (т)'] = a.mean
+    }
+    row['Описание'] = a.description || ''
+    row['Значение'] = a.value
+    row['Порог'] = a.threshold
+    row['Уровень'] = a.severity === 'critical' ? 'Критично' : 'Внимание'
+    return row
+  })
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
+  XLSX.writeFile(wb, `${label}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export default function OverviewPage() {
@@ -85,42 +115,56 @@ export default function OverviewPage() {
           return (
             <div key={key} className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
               {/* Level 1: Method card */}
-              <button
-                onClick={() => toggleMethod(key)}
-                className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
-              >
-                <div className={`w-9 h-9 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
-                  <Icon size={16} className={cfg.color} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-dark-text">{cfg.label}</div>
-                  <div className="flex gap-3 mt-0.5 text-xs">
-                    <span className="text-dark-muted">Всего: {s.total}</span>
-                    {s.critical > 0 && (
-                      <span className="text-accent-red flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
-                        {s.critical} критично
-                      </span>
-                    )}
-                    {s.warn > 0 && (
-                      <span className="text-accent-yellow flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" />
-                        {s.warn} внимание
-                      </span>
-                    )}
-                    {unitCount > 0 && (
-                      <span className="text-dark-muted">{unitCount} уст.</span>
-                    )}
+              <div className="flex items-center">
+                <button
+                  onClick={() => toggleMethod(key)}
+                  className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-white/5 transition-colors"
+                >
+                  <div className={`w-9 h-9 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                    <Icon size={16} className={cfg.color} />
                   </div>
-                </div>
-                {s.total > 0 ? (
-                  isMethodOpen
-                    ? <ChevronUp size={18} className="text-dark-muted shrink-0" />
-                    : <ChevronDown size={18} className="text-dark-muted shrink-0" />
-                ) : (
-                  <span className="text-xs text-dark-muted shrink-0">нет</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-dark-text">{cfg.label}</div>
+                    <div className="flex gap-3 mt-0.5 text-xs">
+                      <span className="text-dark-muted">Всего: {s.total}</span>
+                      {s.critical > 0 && (
+                        <span className="text-accent-red flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+                          {s.critical} критично
+                        </span>
+                      )}
+                      {s.warn > 0 && (
+                        <span className="text-accent-yellow flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" />
+                          {s.warn} внимание
+                        </span>
+                      )}
+                      {unitCount > 0 && (
+                        <span className="text-dark-muted">{unitCount} уст.</span>
+                      )}
+                    </div>
+                  </div>
+                  {s.total > 0 ? (
+                    isMethodOpen
+                      ? <ChevronUp size={18} className="text-dark-muted shrink-0" />
+                      : <ChevronDown size={18} className="text-dark-muted shrink-0" />
+                  ) : (
+                    <span className="text-xs text-dark-muted shrink-0">нет</span>
+                  )}
+                </button>
+                {s.total > 0 && (
+                  <button
+                    onClick={() => {
+                      const methodAnomalies = (anomalies || []).filter(a => a.method === key)
+                      exportOverviewExcel(methodAnomalies, key)
+                    }}
+                    className="mr-4 flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20 shrink-0"
+                  >
+                    <Download size={12} />
+                    Excel
+                  </button>
                 )}
-              </button>
+              </div>
 
               {/* Level 2: Units list */}
               {isMethodOpen && s.total > 0 && (

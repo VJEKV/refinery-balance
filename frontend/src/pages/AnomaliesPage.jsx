@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import api from '../api/client'
 import EventLog from '../components/EventLog'
-import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch, Download, Info } from 'lucide-react'
+import { AlertTriangle, BarChart3, Activity, Clock, GitBranch, Download, Info } from 'lucide-react'
 import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
 
@@ -34,15 +34,6 @@ const methodConfig = {
     risk: 'Скрытые проблемы оборудования, нештатные режимы, ошибки ввода данных.',
     check: 'Журнал работы установки за эти дни, заявки на ремонт, данные о переключениях режимов.',
   },
-  cusum: {
-    label: 'Скрытый тренд',
-    icon: TrendingUp,
-    color: 'text-accent-purple',
-    bg: 'bg-accent-purple/10',
-    description: 'Показатели понемногу смещаются в одну сторону день за днём. По отдельности каждый день нормальный, но в сумме видно отклонение от нормы.',
-    risk: 'Постепенный износ оборудования, изменение качества сырья, систематическая ошибка учёта.',
-    check: 'Графики обслуживания оборудования, паспорта качества сырья, изменения в технологических картах.',
-  },
   downtime: {
     label: 'Простой',
     icon: Clock,
@@ -67,7 +58,6 @@ const methodLabels = {
   balance_closure: 'Небаланс вход/выход',
   recon_gap: 'Расхождение измерено/согласовано',
   spc: 'Нетипичные дни',
-  cusum: 'Скрытый тренд',
   downtime: 'Простой',
   cross_unit: 'Потери продукции между установками',
 }

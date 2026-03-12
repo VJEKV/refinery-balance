@@ -5,12 +5,11 @@ from datetime import date
 
 
 def detect_all(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
-    """Запустить все 6 детекторов для одной установки."""
+    """Запустить все 5 детекторов для одной установки."""
     anomalies = []
     anomalies.extend(balance_closure(unit_data, dates, thresholds))
     anomalies.extend(recon_gap(unit_data, dates, thresholds))
     anomalies.extend(spc(unit_data, dates, thresholds))
-    anomalies.extend(cusum(unit_data, dates, thresholds))
     anomalies.extend(downtime(unit_data, dates, thresholds))
     anomalies.extend(cross_unit_single(unit_data, dates, thresholds))
     return anomalies
@@ -21,12 +20,22 @@ def balance_closure(unit_data: Dict, dates: List[date], thresholds: Dict) -> Lis
     results = []
     threshold = thresholds.get("balance_closure", 3.0)
     imb_rel = unit_data["summary"]["imbalance_rel"]["measured"]
+    consumed_m = unit_data["summary"]["consumed"]["measured"]
+    consumed_r = unit_data["summary"]["consumed"]["reconciled"]
+    produced_m = unit_data["summary"]["produced"]["measured"]
+    produced_r = unit_data["summary"]["produced"]["reconciled"]
+    imb_m = unit_data["summary"]["imbalance"]["measured"]
     for i, d in enumerate(dates):
         if i >= len(imb_rel):
             break
         val = abs(imb_rel[i]) * 100
         if val > threshold:
             severity = "critical" if val > threshold * 2 else "warn"
+            c_m = consumed_m[i] if i < len(consumed_m) else 0
+            c_r = consumed_r[i] if i < len(consumed_r) else 0
+            p_m = produced_m[i] if i < len(produced_m) else 0
+            p_r = produced_r[i] if i < len(produced_r) else 0
+            imb_val = imb_m[i] if i < len(imb_m) else 0
             results.append({
                 "date": d.isoformat(),
                 "method": "balance_closure",
@@ -34,6 +43,12 @@ def balance_closure(unit_data: Dict, dates: List[date], thresholds: Dict) -> Lis
                 "value": round(val, 2),
                 "threshold": threshold,
                 "severity": severity,
+                "input_measured": round(c_m, 2),
+                "input_reconciled": round(c_r, 2),
+                "output_measured": round(p_m, 2),
+                "output_reconciled": round(p_r, 2),
+                "delta_tons": round(imb_val, 2),
+                "delta_pct": round(val, 2),
             })
     return results
 
@@ -44,6 +59,8 @@ def recon_gap(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict
     threshold = thresholds.get("recon_gap", 5.0)
     consumed_m = unit_data["summary"]["consumed"]["measured"]
     consumed_r = unit_data["summary"]["consumed"]["reconciled"]
+    produced_m = unit_data["summary"]["produced"]["measured"]
+    produced_r = unit_data["summary"]["produced"]["reconciled"]
     for i, d in enumerate(dates):
         if i >= len(consumed_m) or i >= len(consumed_r):
             break
@@ -54,13 +71,21 @@ def recon_gap(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict
         gap = abs(m - r) / abs(m) * 100
         if gap > threshold:
             severity = "critical" if gap > threshold * 2 else "warn"
+            p_m = produced_m[i] if i < len(produced_m) else 0
+            p_r = produced_r[i] if i < len(produced_r) else 0
             results.append({
                 "date": d.isoformat(),
                 "method": "recon_gap",
-                "description": f"Расхождение измерено/согласовано: {gap:.2f}% (допустимо {threshold}%)",
+                "description": f"Расхождение измерено/согласовано: {gap:.2f}% от измеренного (допустимо {threshold}%)",
                 "value": round(gap, 2),
                 "threshold": threshold,
                 "severity": severity,
+                "input_measured": round(m, 2),
+                "input_reconciled": round(r, 2),
+                "output_measured": round(p_m, 2),
+                "output_reconciled": round(p_r, 2),
+                "delta_tons": round(abs(m - r), 2),
+                "delta_pct": round(gap, 2),
             })
     return results
 
@@ -70,6 +95,7 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
     results = []
     spc_sigma = thresholds.get("spc_sigma", 3.0)
     consumed = unit_data["summary"]["consumed"]["measured"]
+    produced = unit_data["summary"]["produced"]["measured"]
     if len(consumed) < 2:
         return results
     arr = np.array(consumed, dtype=float)
@@ -80,7 +106,9 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
     for i, d in enumerate(dates):
         if i >= len(consumed):
             break
-        deviation = abs(consumed[i] - mu) / sigma
+        c = consumed[i]
+        p = produced[i] if i < len(produced) else 0
+        deviation = abs(c - mu) / sigma
         if deviation > spc_sigma:
             results.append({
                 "date": d.isoformat(),
@@ -89,6 +117,10 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
                 "value": round(deviation, 2),
                 "threshold": spc_sigma,
                 "severity": "critical",
+                "consumed": round(c, 2),
+                "produced": round(p, 2),
+                "mean": round(mu, 2),
+                "sigma_val": round(sigma, 2),
             })
         elif deviation > spc_sigma - 1:
             results.append({
@@ -98,6 +130,10 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
                 "value": round(deviation, 2),
                 "threshold": spc_sigma,
                 "severity": "warn",
+                "consumed": round(c, 2),
+                "produced": round(p, 2),
+                "mean": round(mu, 2),
+                "sigma_val": round(sigma, 2),
             })
     return results
 

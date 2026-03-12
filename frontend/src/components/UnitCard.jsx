@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Factory, FileText, Download, Clock, AlertTriangle, BarChart3, Activity, TrendingUp, GitBranch } from 'lucide-react'
+import { ChevronDown, ChevronUp, Factory, FileText, Download, Clock, AlertTriangle, BarChart3, Activity, GitBranch } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import ChartWrapper from './ChartWrapper'
 import ControlChart from './ControlChart'
 import ReconGapChart from './ReconGapChart'
-import CusumChart from './CusumChart'
+// CusumChart removed
 import ReconHeatmap from './ReconHeatmap'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
@@ -16,7 +16,6 @@ const methodMeta = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
   recon_gap: { label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow' },
   spc: { label: 'Нетипичные дни', icon: Activity, color: 'text-accent-blue' },
-  cusum: { label: 'Скрытый тренд', icon: TrendingUp, color: 'text-accent-purple' },
   downtime: { label: 'Простой', icon: Clock, color: 'text-dark-muted' },
   cross_unit: { label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green' },
 }
@@ -44,16 +43,31 @@ function exportDowntimeExcel(events, unitName) {
 
 function exportAnomaliesExcel(anomalies, unitName, methodLabel) {
   if (!anomalies || anomalies.length === 0) return
-  const rows = anomalies.map(a => ({
-    'Дата': a.date,
-    'Тип': methodMeta[a.method]?.label || a.method,
-    'Описание': a.description || '',
-    'Значение': a.value,
-    'Порог': a.threshold,
-    'Уровень': a.severity === 'critical' ? 'Критично' : 'Внимание',
-  }))
+  const rows = anomalies.map(a => {
+    const row = {
+      'Дата': a.date,
+      'Тип': methodMeta[a.method]?.label || a.method,
+    }
+    if (a.input_measured != null) {
+      row['Вход изм (т)'] = a.input_measured
+      row['Вход согл (т)'] = a.input_reconciled
+      row['Выход изм (т)'] = a.output_measured
+      row['Выход согл (т)'] = a.output_reconciled
+      row['Δ (т)'] = a.delta_tons
+      row['Δ (% от изм)'] = a.delta_pct
+    }
+    if (a.consumed != null) {
+      row['Загрузка (т)'] = a.consumed
+      row['Выпуск (т)'] = a.produced
+      row['Среднее (т)'] = a.mean
+    }
+    row['Описание'] = a.description || ''
+    row['Значение'] = a.value
+    row['Порог'] = a.threshold
+    row['Уровень'] = a.severity === 'critical' ? 'Критично' : 'Внимание'
+    return row
+  })
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 60 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Аномалии')
   XLSX.writeFile(wb, `${methodLabel}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
@@ -243,12 +257,6 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
                   {(res) => <ReconGapChart reconData={detail.recon_gap} resolved={res} />}
                 </ChartWrapper>
               )}
-              {(!effectiveOpenSection || effectiveOpenSection === 'cusum') && detail.cusum?.dates?.length > 0 && (
-                <ChartWrapper chartId="cusum" title="Скрытый тренд">
-                  {(res) => <CusumChart cusumData={detail.cusum} resolved={res} />}
-                </ChartWrapper>
-              )}
-
               {/* Products & Heatmaps — always if no method filter */}
               {!effectiveOpenSection && (
                 <>
@@ -355,6 +363,8 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
   const meta = methodMeta[method]
   if (!meta || !anomalies || anomalies.length === 0) return null
   const Icon = meta.icon
+  const isBalance = method === 'balance_closure' || method === 'recon_gap'
+  const isSpc = method === 'spc'
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
@@ -377,9 +387,31 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
           <thead className="sticky top-0 bg-dark-card">
             <tr className="border-b border-dark-border text-left text-dark-muted">
               <th className="px-2 py-1.5">Дата</th>
-              <th className="px-2 py-1.5">Описание</th>
-              <th className="px-2 py-1.5 text-right">Значение</th>
-              <th className="px-2 py-1.5 text-right">Порог</th>
+              {isBalance && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Вход изм (т)</th>
+                  <th className="px-2 py-1.5 text-right">Вход согл (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход изм (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход согл (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ (% от изм)</th>
+                </>
+              )}
+              {isSpc && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Загрузка (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выпуск (т)</th>
+                  <th className="px-2 py-1.5 text-right">Среднее (т)</th>
+                  <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
+                </>
+              )}
+              {!isBalance && !isSpc && (
+                <>
+                  <th className="px-2 py-1.5">Описание</th>
+                  <th className="px-2 py-1.5 text-right">Значение</th>
+                  <th className="px-2 py-1.5 text-right">Порог</th>
+                </>
+              )}
               <th className="px-2 py-1.5">Уровень</th>
             </tr>
           </thead>
@@ -387,9 +419,31 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
             {anomalies.map((a, i) => (
               <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
                 <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
-                <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{a.threshold}</td>
+                {isBalance && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+                {isSpc && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
+                  </>
+                )}
+                {!isBalance && !isSpc && (
+                  <>
+                    <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{a.threshold}</td>
+                  </>
+                )}
                 <td className="px-2 py-1.5">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                     a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'

@@ -4,7 +4,6 @@ import api from '../api/client'
 import KPICard from '../components/KPICard'
 import ControlChart from '../components/ControlChart'
 import ReconGapChart from '../components/ReconGapChart'
-import CusumChart from '../components/CusumChart'
 import ChartWrapper from '../components/ChartWrapper'
 import ReconHeatmap from '../components/ReconHeatmap'
 import { ArrowLeft } from 'lucide-react'
@@ -23,7 +22,7 @@ export default function UnitDetailPage() {
   if (isLoading) return <div className="text-dark-muted">Загрузка...</div>
   if (!data) return <div className="text-dark-muted">Установка не найдена</div>
 
-  const { kpi, spc, cusum, recon_gap } = data
+  const { kpi, spc, recon_gap } = data
 
   return (
     <div className="space-y-6">
@@ -53,12 +52,9 @@ export default function UnitDetailPage() {
         <KPICard label="Аномалий" value={kpi.anomaly_count} color={kpi.anomaly_count > 0 ? 'red' : 'green'} />
       </div>
 
-      {/* 2. SPC + CUSUM */}
+      {/* 2. SPC */}
       <ChartWrapper chartId="control" title="SPC Контрольная карта">
         {(resolved) => <ControlChart spcData={spc} resolved={resolved} />}
-      </ChartWrapper>
-      <ChartWrapper chartId="cusum" title="CUSUM">
-        {(resolved) => <CusumChart cusumData={cusum} resolved={resolved} />}
       </ChartWrapper>
 
       {/* 3. Расхождение прибор/согл — бар-чарт по дням */}
