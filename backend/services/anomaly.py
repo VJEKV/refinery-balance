@@ -284,7 +284,9 @@ def detect_cross_unit(all_units: Dict, dates: List[date], thresholds: Dict) -> L
                                 "severity": severity,
                                 "product": product,
                                 "source_unit": out_entry["unit"],
+                                "source_unit_name": out_entry["unit_name"],
                                 "target_unit": in_entry["unit"],
+                                "target_unit_name": in_entry["unit_name"],
                                 "output_value": out_val,
                                 "input_value": in_val,
                             })

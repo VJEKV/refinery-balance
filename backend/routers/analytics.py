@@ -216,11 +216,21 @@ def heatmap(
                 consumed_vals.append(0)
                 produced_vals.append(0)
 
+        # Plan: sum plan_day across all products
+        plan_day_input = 0.0
+        plan_day_output = 0.0
+        if data.get("inputs") is not None and "plan_day" in data["inputs"].columns:
+            plan_day_input = float(data["inputs"]["plan_day"].sum())
+        if data.get("outputs") is not None and "plan_day" in data["outputs"].columns:
+            plan_day_output = float(data["outputs"]["plan_day"].sum())
+
         units_data.append({
             "code": code,
             "name": unit_info["name"],
             "consumed": consumed_vals,
             "produced": produced_vals,
+            "plan_day_input": round(plan_day_input, 2),
+            "plan_day_output": round(plan_day_output, 2),
         })
 
     return {"dates": date_strs, "units": units_data}

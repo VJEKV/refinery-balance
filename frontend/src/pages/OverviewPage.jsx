@@ -223,9 +223,10 @@ export default function OverviewPage() {
 }
 
 function MethodDetailTable({ method, items, unitName }) {
-  const isBalance = method === 'balance_closure' || method === 'recon_gap'
+  const isBalanceClosure = method === 'balance_closure'
+  const isReconGap = method === 'recon_gap'
   const isSpc = method === 'spc'
-  const label = methodConfig[method]?.label || method
+  const isCrossUnit = method === 'cross_unit'
 
   return (
     <div className="bg-[#080e20] px-6 py-3 border-b border-dark-border/30">
@@ -244,14 +245,23 @@ function MethodDetailTable({ method, items, unitName }) {
           <thead className="sticky top-0 bg-[#080e20]">
             <tr className="border-b border-dark-border text-left text-dark-muted">
               <th className="px-2 py-1.5">Дата</th>
-              {isBalance && (
+              {isBalanceClosure && (
                 <>
-                  <th className="px-2 py-1.5 text-right">Вход изм (т)</th>
-                  <th className="px-2 py-1.5 text-right">Вход согл (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выход изм (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выход согл (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ (%)</th>
+                  <th className="px-2 py-1.5 text-right">Вход замер (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход замер (т)</th>
+                  <th className="px-2 py-1.5 text-right">Небаланс (т)</th>
+                  <th className="px-2 py-1.5 text-right">Небаланс (%)</th>
+                </>
+              )}
+              {isReconGap && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Замер сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Согласов сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Замер продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Согласов продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ%</th>
                 </>
               )}
               {isSpc && (
@@ -262,7 +272,18 @@ function MethodDetailTable({ method, items, unitName }) {
                   <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
                 </>
               )}
-              {!isBalance && !isSpc && (
+              {isCrossUnit && (
+                <>
+                  <th className="px-2 py-1.5">Продукт</th>
+                  <th className="px-2 py-1.5">Откуда</th>
+                  <th className="px-2 py-1.5">Куда</th>
+                  <th className="px-2 py-1.5 text-right">Отдано (т)</th>
+                  <th className="px-2 py-1.5 text-right">Принято (т)</th>
+                  <th className="px-2 py-1.5 text-right">Потери (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ%</th>
+                </>
+              )}
+              {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                 <>
                   <th className="px-2 py-1.5">Описание</th>
                   <th className="px-2 py-1.5 text-right">Значение</th>
@@ -276,14 +297,23 @@ function MethodDetailTable({ method, items, unitName }) {
             {items.map((a, i) => (
               <tr key={i} className="border-b border-dark-border/20 hover:bg-white/5">
                 <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
-                {isBalance && (
+                {isBalanceClosure && (
                   <>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+                {isReconGap && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
                   </>
                 )}
                 {isSpc && (
@@ -294,7 +324,18 @@ function MethodDetailTable({ method, items, unitName }) {
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
                   </>
                 )}
-                {!isBalance && !isSpc && (
+                {isCrossUnit && (
+                  <>
+                    <td className="px-2 py-1.5 text-dark-text">{a.product}</td>
+                    <td className="px-2 py-1.5 text-dark-text">{a.source_unit_name || '—'}</td>
+                    <td className="px-2 py-1.5 text-dark-text">{a.target_unit_name || '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(1)}%</td>
+                  </>
+                )}
+                {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                   <>
                     <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>

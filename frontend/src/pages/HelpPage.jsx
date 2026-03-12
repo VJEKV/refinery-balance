@@ -93,13 +93,64 @@ export default function HelpPage() {
         })}
       </div>
 
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-dark-text mb-3">Цветовая шкала тепловой карты</h2>
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs font-medium text-dark-muted mb-2">Загрузка / Выпуск (% от среднего за период)</div>
+            <div className="flex gap-0.5">
+              {[
+                { pct: '0%', color: '#4c0519' },
+                { pct: '10%', color: '#7f1d1d' },
+                { pct: '20%', color: '#b91c1c' },
+                { pct: '30%', color: '#dc2626' },
+                { pct: '40%', color: '#ea580c' },
+                { pct: '50%', color: '#f59e0b' },
+                { pct: '60%', color: '#eab308' },
+                { pct: '70%', color: '#84cc16' },
+                { pct: '80%', color: '#22c55e' },
+                { pct: '90%', color: '#16a34a' },
+                { pct: '100%', color: '#15803d' },
+                { pct: '110%', color: '#6366f1' },
+                { pct: '120%+', color: '#7c3aed' },
+              ].map(s => (
+                <div key={s.pct} className="flex-1 text-center">
+                  <div className="h-6 rounded" style={{ backgroundColor: s.color }} />
+                  <div className="text-[9px] text-dark-muted mt-0.5">{s.pct}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-dark-muted mt-1">100% = средняя загрузка (без нулевых дней). Зелёный — норма. Фиолетовый — перегрузка.</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-dark-muted mb-2">Дисбаланс (загрузка минус выпуск, % от загрузки)</div>
+            <div className="flex gap-0.5">
+              {[
+                { pct: '0–5%', color: '#15803d' },
+                { pct: '5–10%', color: '#65a30d' },
+                { pct: '10–15%', color: '#eab308' },
+                { pct: '15–20%', color: '#f59e0b' },
+                { pct: '20–25%', color: '#ea580c' },
+                { pct: '25%+', color: '#dc2626' },
+              ].map(s => (
+                <div key={s.pct} className="flex-1 text-center">
+                  <div className="h-6 rounded" style={{ backgroundColor: s.color }} />
+                  <div className="text-[9px] text-dark-muted mt-0.5">{s.pct}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-dark-muted mt-1">Зелёный — небольшой дисбаланс (&lt;5%). Красный — большой (&gt;25%).</div>
+          </div>
+        </div>
+      </div>
+
       <div className="p-4 bg-dark-card border border-dark-border rounded-xl">
         <h2 className="text-sm font-semibold text-dark-text mb-2">Как пользоваться</h2>
         <ul className="text-sm text-dark-muted space-y-1.5 list-disc list-inside">
           <li>Загрузите файлы .xlsm на странице «Загрузка»</li>
           <li>На странице «Обзор» — общая картина: KPI, карточки аномалий по типам, установки</li>
           <li>Нажмите на карточку аномалии — раскроется список установок с этим типом проблемы</li>
-          <li>На странице «Аномалии» — полный список всех аномалий с фильтрами и выгрузкой в Excel</li>
+          <li>Внутри карточек установок — аккордеоны по каждому типу аномалий с выгрузкой в Excel</li>
           <li>На странице «Потоки» — диаграмма Sankey: как продукция перемещается между установками</li>
           <li>Пороги настраиваются в боковой панели слева — перетащите слайдер и нажмите «Сохранить»</li>
         </ul>

@@ -10,7 +10,6 @@ import { useDateFilter } from '../hooks/useDateFilter'
 
 const navItems = [
   { to: '/', icon: BarChart3, label: 'Обзор' },
-  { to: '/anomalies', icon: AlertTriangle, label: 'Аномалии' },
   { to: '/sankey', icon: GitBranch, label: 'Потоки' },
   { to: '/upload', icon: FolderOpen, label: 'Загрузка' },
   { to: '/help', icon: HelpCircle, label: 'Справка' },

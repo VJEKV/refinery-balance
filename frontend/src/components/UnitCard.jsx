@@ -368,6 +368,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
   const isBalanceClosure = method === 'balance_closure'
   const isReconGap = method === 'recon_gap'
   const isSpc = method === 'spc'
+  const isCrossUnit = method === 'cross_unit'
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
@@ -402,8 +403,22 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                 <>
                   <th className="px-2 py-1.5 text-right">Замер сырьё (т)</th>
                   <th className="px-2 py-1.5 text-right">Согласов сырьё (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ замер−согл (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ замер−согл (%)</th>
+                  <th className="px-2 py-1.5 text-right">Δ сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Замер продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Согласов продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ продукц (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ%</th>
+                </>
+              )}
+              {isCrossUnit && (
+                <>
+                  <th className="px-2 py-1.5">Продукт</th>
+                  <th className="px-2 py-1.5">Откуда</th>
+                  <th className="px-2 py-1.5">Куда</th>
+                  <th className="px-2 py-1.5 text-right">Отдано (т)</th>
+                  <th className="px-2 py-1.5 text-right">Принято (т)</th>
+                  <th className="px-2 py-1.5 text-right">Потери (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ%</th>
                 </>
               )}
               {isSpc && (
@@ -414,7 +429,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                   <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
                 </>
               )}
-              {!isBalanceClosure && !isReconGap && !isSpc && (
+              {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                 <>
                   <th className="px-2 py-1.5">Описание</th>
                   <th className="px-2 py-1.5 text-right">Значение</th>
@@ -440,8 +455,22 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                   <>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+                {isCrossUnit && (
+                  <>
+                    <td className="px-2 py-1.5 text-dark-text">{a.product}</td>
+                    <td className="px-2 py-1.5 text-dark-text">{a.source_unit_name || '—'}</td>
+                    <td className="px-2 py-1.5 text-dark-text">{a.target_unit_name || '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(1)}%</td>
                   </>
                 )}
                 {isSpc && (
@@ -452,7 +481,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
                   </>
                 )}
-                {!isBalanceClosure && !isReconGap && !isSpc && (
+                {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                   <>
                     <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>

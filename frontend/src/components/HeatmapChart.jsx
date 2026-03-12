@@ -3,85 +3,89 @@ import { useState, useMemo, useRef } from 'react'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
 
-const CELL_W = 32
-const CELL_H = 24
-const LABEL_W = 180
-const HEADER_H = 60
-
-// Per-unit color palettes: [cold, mid, hot]
-// Each unit has a distinct hue so they are visually distinguishable.
-const UNIT_PALETTES = [
-  // Unit 0 — blue hue
-  { cold: [30, 58, 95], mid: [100, 130, 160], hot: [239, 68, 68] },
-  // Unit 1 — green hue
-  { cold: [6, 78, 59], mid: [60, 140, 90], hot: [245, 158, 11] },
-  // Unit 2 — purple hue
-  { cold: [49, 46, 129], mid: [120, 90, 170], hot: [236, 72, 153] },
-  // Unit 3 — teal hue
-  { cold: [19, 78, 74], mid: [60, 150, 140], hot: [249, 115, 22] },
-]
-
-function lerpChannel(a, b, t) {
-  return Math.round(a + (b - a) * t)
-}
-
-function lerpColor(c1, c2, t) {
-  return [
-    lerpChannel(c1[0], c2[0], t),
-    lerpChannel(c1[1], c2[1], t),
-    lerpChannel(c1[2], c2[2], t),
+/** Load/production color: 13 steps, 10% intervals. 100% = max green */
+function colorForLoadPct(pct) {
+  const stops = [
+    [0,   0x4c, 0x05, 0x19],
+    [10,  0x7f, 0x1d, 0x1d],
+    [20,  0xb9, 0x1c, 0x1c],
+    [30,  0xdc, 0x26, 0x26],
+    [40,  0xea, 0x58, 0x0c],
+    [50,  0xf5, 0x9e, 0x0b],
+    [60,  0xea, 0xb3, 0x08],
+    [70,  0x84, 0xcc, 0x16],
+    [80,  0x22, 0xc5, 0x5e],
+    [90,  0x16, 0xa3, 0x4a],
+    [100, 0x15, 0x80, 0x3d],
+    [110, 0x63, 0x66, 0xf1],
+    [120, 0x7c, 0x3a, 0xed],
   ]
-}
-
-/**
- * Returns an RGB color string for a given temperature ratio and unit index.
- * ratio: 0 = cold (below yearly average), 0.5 = at average, 1 = hot (above average)
- * unitIndex: determines which color palette to use
- */
-function tempColor(ratio, unitIndex) {
-  const palette = UNIT_PALETTES[unitIndex % UNIT_PALETTES.length]
-  const clamped = Math.max(0, Math.min(1, ratio))
-
-  let rgb
-  if (clamped <= 0.5) {
-    // Interpolate from cold to mid
-    const t = clamped / 0.5
-    rgb = lerpColor(palette.cold, palette.mid, t)
-  } else {
-    // Interpolate from mid to hot
-    const t = (clamped - 0.5) / 0.5
-    rgb = lerpColor(palette.mid, palette.hot, t)
+  const clamped = Math.max(0, Math.min(130, pct))
+  let lo = stops[0], hi = stops[stops.length - 1]
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (clamped >= stops[i][0] && clamped <= stops[i + 1][0]) {
+      lo = stops[i]; hi = stops[i + 1]; break
+    }
   }
-
-  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
+  if (clamped > 120) { lo = stops[stops.length - 2]; hi = stops[stops.length - 1] }
+  const range = hi[0] - lo[0] || 1
+  const t = (clamped - lo[0]) / range
+  const r = Math.round(lo[1] + (hi[1] - lo[1]) * t)
+  const g = Math.round(lo[2] + (hi[2] - lo[2]) * t)
+  const b = Math.round(lo[3] + (hi[3] - lo[3]) * t)
+  return `rgb(${r},${g},${b})`
 }
 
-/**
- * Maps a daily value to a 0..1 ratio based on its deviation from the
- * yearly (overall) average for that unit's metric. The average is computed
- * across ALL dates in the selected range, excluding zero/non-working days.
- */
-function computeRatio(value, yearlyAvg) {
-  if (yearlyAvg === 0) return 0.5
-  const diff = (value - yearlyAvg) / yearlyAvg
-  return Math.max(0, Math.min(1, 0.5 + diff * 0.5))
-}
-
-/**
- * Builds an SVG gradient string with 11 stops for a given unit palette,
- * used in the per-unit legend bands.
- */
-function buildGradientStops(unitIndex) {
-  const stops = []
-  for (let i = 0; i <= 10; i++) {
-    const ratio = i / 10
-    stops.push(`${tempColor(ratio, unitIndex)} ${ratio * 100}%`)
+/** Imbalance color: 6 steps, 5% intervals */
+function colorForImbalancePct(pct) {
+  const absPct = Math.abs(pct)
+  const stops = [
+    [0,  0x15, 0x80, 0x3d],
+    [5,  0x65, 0xa3, 0x0d],
+    [10, 0xea, 0xb3, 0x08],
+    [15, 0xf5, 0x9e, 0x0b],
+    [20, 0xea, 0x58, 0x0c],
+    [25, 0xdc, 0x26, 0x26],
+  ]
+  const clamped = Math.min(30, absPct)
+  let lo = stops[0], hi = stops[stops.length - 1]
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (clamped >= stops[i][0] && clamped <= stops[i + 1][0]) {
+      lo = stops[i]; hi = stops[i + 1]; break
+    }
   }
-  return stops.join(', ')
+  if (clamped > 25) { lo = stops[stops.length - 2]; hi = stops[stops.length - 1] }
+  const range = hi[0] - lo[0] || 1
+  const t = (clamped - lo[0]) / range
+  const r = Math.round(lo[1] + (hi[1] - lo[1]) * t)
+  const g = Math.round(lo[2] + (hi[2] - lo[2]) * t)
+  const b = Math.round(lo[3] + (hi[3] - lo[3]) * t)
+  return `rgb(${r},${g},${b})`
+}
+
+function textOnBg(pct, type) {
+  if (type === 'imbalance') {
+    return Math.abs(pct) < 8 ? '#1e293b' : '#ffffff'
+  }
+  if (pct <= 0) return '#fca5a5'
+  if (pct >= 60 && pct <= 100) return '#ffffff'
+  if (pct > 100) return '#ffffff'
+  if (pct < 40) return '#fca5a5'
+  return '#1e293b'
+}
+
+function formatDay(iso) {
+  const d = new Date(iso)
+  return d.getDate().toString().padStart(2, '0')
+}
+
+function fmtTons(v) {
+  return Math.abs(v) < 0.5 ? '0' : Math.round(v).toLocaleString('ru-RU')
 }
 
 export default function HeatmapChart() {
   const { dateParams } = useDateFilter()
+  const [mode, setMode] = useState('tons')
   const [tooltip, setTooltip] = useState(null)
   const containerRef = useRef(null)
 
@@ -92,218 +96,197 @@ export default function HeatmapChart() {
 
   const processed = useMemo(() => {
     if (!data || !data.dates || data.dates.length === 0) return null
-
-    const dates = data.dates
-    const rows = []
-    const unitMeta = []
-
-    data.units.forEach((unit, unitIndex) => {
-      // Compute yearly (overall) averages across ALL dates, excluding zeros
+    return data.units.map(unit => {
       const cNonZero = unit.consumed.filter(v => v > 0)
       const pNonZero = unit.produced.filter(v => v > 0)
-      const cAvg = cNonZero.length > 0 ? cNonZero.reduce((a, b) => a + b, 0) / cNonZero.length : 0
-      const pAvg = pNonZero.length > 0 ? pNonZero.reduce((a, b) => a + b, 0) / pNonZero.length : 0
-
-      unitMeta.push({ name: unit.name, code: unit.code, unitIndex })
-
-      rows.push({
-        label: unit.name,
-        subLabel: 'загрузка',
-        code: unit.code,
-        type: 'consumed',
-        unitIndex,
-        values: unit.consumed,
-        avg: cAvg,
-        ratios: unit.consumed.map(v => v === 0 ? null : computeRatio(v, cAvg)),
-      })
-      rows.push({
-        label: '',
-        subLabel: 'выпуск',
-        code: unit.code,
-        type: 'produced',
-        unitIndex,
-        values: unit.produced,
-        avg: pAvg,
-        ratios: unit.produced.map(v => v === 0 ? null : computeRatio(v, pAvg)),
-      })
+      const avgC = cNonZero.length > 0 ? cNonZero.reduce((a, b) => a + b, 0) / cNonZero.length : 0
+      const avgP = pNonZero.length > 0 ? pNonZero.reduce((a, b) => a + b, 0) / pNonZero.length : 0
+      const sumC = unit.consumed.reduce((a, b) => a + b, 0)
+      const sumP = unit.produced.reduce((a, b) => a + b, 0)
+      const sumImb = sumC - sumP
+      const imbalance = unit.consumed.map((c, i) => c - (unit.produced[i] || 0))
+      const imbPct = unit.consumed.map((c, i) => c > 0 ? Math.abs(c - (unit.produced[i] || 0)) / c * 100 : 0)
+      const cPct = unit.consumed.map(c => avgC > 0 ? c / avgC * 100 : 0)
+      const pPct = unit.produced.map(p => avgP > 0 ? p / avgP * 100 : 0)
+      return {
+        ...unit,
+        avgC, avgP, sumC, sumP, sumImb,
+        imbalance, imbPct, cPct, pPct,
+      }
     })
-
-    return { dates, rows, unitMeta }
   }, [data])
 
   if (isLoading) return <div className="text-dark-muted text-sm">Загрузка тепловой карты...</div>
-  if (!processed) return null
+  if (!processed || processed.length === 0) return null
 
-  const { dates, rows, unitMeta } = processed
-  const totalW = LABEL_W + dates.length * CELL_W + 80
-  const totalH = HEADER_H + rows.length * CELL_H + 10
+  const dates = data.dates
 
-  const formatDate = (iso) => {
-    const d = new Date(iso)
-    return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`
+  const handleMouse = (e, unit, di, rowType) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cr = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 }
+    const c = unit.consumed[di] || 0
+    const p = unit.produced[di] || 0
+    const imb = c - p
+    const imbP = c > 0 ? (imb / c * 100) : 0
+    const planC = unit.plan_day_input || 0
+    const planP = unit.plan_day_output || 0
+    setTooltip({
+      x: rect.left - cr.left + rect.width / 2,
+      y: rect.top - cr.top - 8,
+      unitName: unit.name,
+      date: dates[di],
+      rowType,
+      consumed: c, produced: p,
+      imbalance: imb, imbPct: imbP,
+      planC, planP,
+      cPct: unit.cPct[di], pPct: unit.pPct[di],
+    })
   }
 
   return (
-    <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-dark-text mb-3">Тепловая карта загрузки</h3>
-      <div className="overflow-x-auto relative" ref={containerRef}>
-        <svg width={totalW} height={totalH} className="select-none">
-          {/* Date headers */}
-          {dates.map((d, ci) => (
-            <text
-              key={ci}
-              x={LABEL_W + ci * CELL_W + CELL_W / 2}
-              y={HEADER_H - 6}
-              textAnchor="middle"
-              fill="#64748b"
-              fontSize={8}
-              transform={`rotate(-45, ${LABEL_W + ci * CELL_W + CELL_W / 2}, ${HEADER_H - 6})`}
-            >
-              {formatDate(d)}
-            </text>
-          ))}
-
-          {/* Rows */}
-          {rows.map((row, ri) => {
-            const y = HEADER_H + ri * CELL_H
-            const isFirstOfUnit = row.type === 'consumed'
-            return (
-              <g key={ri}>
-                {/* Unit name label (only for first sub-row) */}
-                {isFirstOfUnit && (
-                  <text
-                    x={4}
-                    y={y + CELL_H}
-                    fill="#e2e8f0"
-                    fontSize={10}
-                    fontWeight={600}
-                    dominantBaseline="middle"
-                  >
-                    {row.label.length > 22 ? row.label.slice(0, 20) + '...' : row.label}
-                  </text>
-                )}
-                {/* Sub-label */}
-                <text
-                  x={LABEL_W - 6}
-                  y={y + CELL_H / 2}
-                  textAnchor="end"
-                  fill="#94a3b8"
-                  fontSize={9}
-                  dominantBaseline="middle"
-                >
-                  {row.subLabel}
-                </text>
-
-                {/* Cells — colored per unit palette */}
-                {row.ratios.map((ratio, ci) => (
-                  <rect
-                    key={ci}
-                    x={LABEL_W + ci * CELL_W}
-                    y={y}
-                    width={CELL_W - 1}
-                    height={CELL_H - 1}
-                    rx={2}
-                    fill={ratio === null ? '#111827' : tempColor(ratio, row.unitIndex)}
-                    opacity={ratio === null ? 0.3 : 0.85}
-                    onMouseEnter={(e) => {
-                      const rect = containerRef.current.getBoundingClientRect()
-                      setTooltip({
-                        x: e.clientX - rect.left + 10,
-                        y: e.clientY - rect.top - 40,
-                        unit: rows[ri - (ri % 2)].label || row.code,
-                        type: row.subLabel,
-                        date: dates[ci],
-                        value: row.values[ci],
-                        avg: row.avg,
-                        pct: row.avg > 0 ? ((row.values[ci] - row.avg) / row.avg * 100).toFixed(1) : '—',
-                      })
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                ))}
-
-                {/* Yearly average value at end of row */}
-                <text
-                  x={LABEL_W + dates.length * CELL_W + 6}
-                  y={y + CELL_H / 2}
-                  fill="#94a3b8"
-                  fontSize={9}
-                  dominantBaseline="middle"
-                >
-                  {'\u03BC'} {row.avg.toFixed(0)}
-                </text>
-
-                {/* Row separator between units */}
-                {row.type === 'produced' && (
-                  <line
-                    x1={LABEL_W}
-                    x2={LABEL_W + dates.length * CELL_W}
-                    y1={y + CELL_H}
-                    y2={y + CELL_H}
-                    stroke="#1e293b"
-                    strokeWidth={1}
-                  />
-                )}
-              </g>
-            )
-          })}
-        </svg>
-
-        {/* Tooltip — light background */}
-        {tooltip && (
-          <div
-            className="absolute z-50 border rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none"
-            style={{
-              left: tooltip.x,
-              top: tooltip.y,
-              backgroundColor: '#f8fafc',
-              borderColor: '#cbd5e1',
-              color: '#1e293b',
-            }}
+    <div className="space-y-4" ref={containerRef}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-dark-text">Тепловая карта загрузки</h3>
+        <div className="flex rounded-lg border border-dark-border overflow-hidden">
+          <button
+            onClick={() => setMode('tons')}
+            className={`px-3 py-1 text-xs transition-colors ${mode === 'tons' ? 'bg-accent-blue text-white' : 'bg-dark-card text-dark-muted hover:text-dark-text'}`}
           >
-            <div className="font-semibold">{tooltip.unit}</div>
-            <div className="text-gray-500">{tooltip.date} / {tooltip.type}</div>
-            <div className="mt-1 tabular-nums font-medium">{tooltip.value.toFixed(1)} т</div>
-            <div className="text-gray-500 tabular-nums">
-              Среднее за период: {tooltip.avg.toFixed(1)} т ({tooltip.pct}%)
+            тонны
+          </button>
+          <button
+            onClick={() => setMode('pct')}
+            className={`px-3 py-1 text-xs transition-colors ${mode === 'pct' ? 'bg-accent-blue text-white' : 'bg-dark-card text-dark-muted hover:text-dark-text'}`}
+          >
+            %
+          </button>
+        </div>
+      </div>
+
+      {processed.map((unit, ui) => (
+        <div key={unit.code} className="bg-dark-card border border-dark-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-base font-bold text-dark-text">{unit.name}</h4>
+            <div className="text-xs text-dark-muted tabular-nums">
+              Σ загрузка: <span className="text-dark-text font-semibold">{fmtTons(unit.sumC)} т</span>
+              {' · '}
+              выпуск: <span className="text-dark-text font-semibold">{fmtTons(unit.sumP)} т</span>
+              {' · '}
+              дисбаланс: <span className="text-accent-red font-semibold">{fmtTons(unit.sumImb)} т</span>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Per-unit legend with individual gradient bands */}
-      <div className="mt-3 space-y-1.5">
-        <div className="flex items-center gap-4 text-xs text-dark-muted">
-          <span className="shrink-0">Шкала по установкам:</span>
-          <span className="text-dark-muted">ниже среднего</span>
-          <span className="mx-auto" />
-          <span className="text-dark-muted">выше среднего</span>
-        </div>
-        {unitMeta.map((um) => (
-          <div key={um.unitIndex} className="flex items-center gap-2 text-xs text-dark-muted">
-            <span
-              className="shrink-0 text-right"
-              style={{ width: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              title={um.name}
-            >
-              {um.name.length > 20 ? um.name.slice(0, 18) + '...' : um.name}
-            </span>
-            <div
-              className="h-3 rounded flex-1"
-              style={{
-                minWidth: 120,
-                maxWidth: 200,
-                background: `linear-gradient(to right, ${buildGradientStops(um.unitIndex)})`,
-              }}
-            />
+          <div className="overflow-x-auto relative">
+            <table className="border-collapse w-full" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '80px', minWidth: '80px' }} />
+                {dates.map((_, i) => <col key={i} />)}
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="text-left text-[10px] text-dark-muted font-normal px-1 py-1" />
+                  {dates.map((d, i) => (
+                    <th key={i} className="text-center text-[10px] text-dark-muted font-normal px-0 py-1">
+                      {formatDay(d)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Загрузка */}
+                <tr>
+                  <td className="text-[11px] text-dark-muted px-1 py-0 font-medium">загрузка</td>
+                  {dates.map((_, di) => {
+                    const v = unit.consumed[di] || 0
+                    const pct = unit.cPct[di]
+                    const bg = v === 0 ? '#111827' : colorForLoadPct(pct)
+                    const fg = v === 0 ? '#475569' : textOnBg(pct, 'load')
+                    const display = mode === 'tons' ? fmtTons(v) : (v === 0 ? '0' : `${Math.round(pct)}%`)
+                    return (
+                      <td key={di}
+                        className="text-center px-0 py-0 cursor-pointer border border-dark-bg/30"
+                        style={{ backgroundColor: bg, color: fg, fontSize: '10px', fontVariantNumeric: 'tabular-nums', height: 28, fontWeight: 500 }}
+                        onMouseEnter={e => handleMouse(e, unit, di, 'загрузка')}
+                        onMouseLeave={() => setTooltip(null)}
+                      >
+                        {display}
+                      </td>
+                    )
+                  })}
+                </tr>
+                {/* Выпуск */}
+                <tr>
+                  <td className="text-[11px] text-dark-muted px-1 py-0 font-medium">выпуск</td>
+                  {dates.map((_, di) => {
+                    const v = unit.produced[di] || 0
+                    const pct = unit.pPct[di]
+                    const bg = v === 0 ? '#111827' : colorForLoadPct(pct)
+                    const fg = v === 0 ? '#475569' : textOnBg(pct, 'load')
+                    const display = mode === 'tons' ? fmtTons(v) : (v === 0 ? '0' : `${Math.round(pct)}%`)
+                    return (
+                      <td key={di}
+                        className="text-center px-0 py-0 cursor-pointer border border-dark-bg/30"
+                        style={{ backgroundColor: bg, color: fg, fontSize: '10px', fontVariantNumeric: 'tabular-nums', height: 28, fontWeight: 500 }}
+                        onMouseEnter={e => handleMouse(e, unit, di, 'выпуск')}
+                        onMouseLeave={() => setTooltip(null)}
+                      >
+                        {display}
+                      </td>
+                    )
+                  })}
+                </tr>
+                {/* Дисбаланс */}
+                <tr>
+                  <td className="text-[11px] text-dark-muted px-1 py-0 font-medium">дисбаланс</td>
+                  {dates.map((_, di) => {
+                    const c = unit.consumed[di] || 0
+                    const imb = unit.imbalance[di] || 0
+                    const imbP = unit.imbPct[di] || 0
+                    const bg = c === 0 ? '#111827' : colorForImbalancePct(imbP)
+                    const fg = c === 0 ? '#475569' : textOnBg(imbP, 'imbalance')
+                    const display = mode === 'tons' ? fmtTons(imb) : (c === 0 ? '—' : `${imbP.toFixed(1)}%`)
+                    return (
+                      <td key={di}
+                        className="text-center px-0 py-0 cursor-pointer border border-dark-bg/30"
+                        style={{ backgroundColor: bg, color: fg, fontSize: '10px', fontVariantNumeric: 'tabular-nums', height: 28, fontWeight: 500 }}
+                        onMouseEnter={e => handleMouse(e, unit, di, 'дисбаланс')}
+                        onMouseLeave={() => setTooltip(null)}
+                      >
+                        {display}
+                      </td>
+                    )
+                  })}
+                </tr>
+              </tbody>
+            </table>
           </div>
-        ))}
-        <div className="flex items-center gap-1 text-xs text-dark-muted mt-1">
-          <div className="w-4 h-3 rounded" style={{ backgroundColor: '#111827', opacity: 0.3 }} />
-          <span>нет данных</span>
         </div>
-      </div>
+      ))}
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="fixed z-50 pointer-events-none bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-3 py-2 shadow-xl"
+          style={{
+            left: (containerRef.current?.getBoundingClientRect().left || 0) + tooltip.x,
+            top: (containerRef.current?.getBoundingClientRect().top || 0) + tooltip.y,
+            transform: 'translate(-50%, -100%)',
+            fontSize: '11px',
+            color: '#1e293b',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div className="font-semibold">{tooltip.unitName}</div>
+          <div className="text-gray-500">{new Date(tooltip.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} / {tooltip.rowType}</div>
+          <div className="mt-1">Факт загрузка: <span className="font-medium">{fmtTons(tooltip.consumed)} т</span> ({Math.round(tooltip.cPct)}%)</div>
+          <div>Факт выпуск: <span className="font-medium">{fmtTons(tooltip.produced)} т</span> ({Math.round(tooltip.pPct)}%)</div>
+          {tooltip.planC > 0 && <div className="text-gray-500">План загрузка: {fmtTons(tooltip.planC)} т/день</div>}
+          {tooltip.planP > 0 && <div className="text-gray-500">План выпуск: {fmtTons(tooltip.planP)} т/день</div>}
+          <div className="font-semibold mt-0.5">
+            Дисбаланс: {fmtTons(tooltip.imbalance)} т ({tooltip.imbPct.toFixed(1)}%)
+          </div>
+        </div>
+      )}
     </div>
   )
 }
