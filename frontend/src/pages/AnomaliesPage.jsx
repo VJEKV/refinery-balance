@@ -272,54 +272,75 @@ export default function AnomaliesPage() {
             </div>
           )}
 
-          {/* Daily events */}
-          {downtimeData.events?.length > 0 && (
+          {/* Grouped downtime events */}
+          {downtimeData.events?.length > 0 && (() => {
+            const totalLostOutput = downtimeData.events.reduce((s, e) => s + (e.lost_output_tons ?? 0), 0)
+            return (
             <div>
-              <h3 className="text-xs font-medium text-dark-muted mb-2">Журнал событий по дням ({downtimeData.events.length})</h3>
+              <h3 className="text-xs font-medium text-dark-muted mb-2 flex items-center gap-2">
+                Простои по событиям ({downtimeData.events.length})
+                {totalLostOutput > 0 && (
+                  <span className="text-accent-red font-semibold">
+                    Сокращение выпуска: −{totalLostOutput.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} т
+                  </span>
+                )}
+              </h3>
               <div className="overflow-x-auto max-h-80 overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-dark-card">
                     <tr className="border-b border-dark-border text-left text-dark-muted text-xs">
-                      <th className="px-3 py-2">Дата</th>
                       <th className="px-3 py-2">Установка</th>
+                      <th className="px-3 py-2">Начало</th>
+                      <th className="px-3 py-2">Конец</th>
+                      <th className="px-3 py-2 text-right">Длительность</th>
                       <th className="px-3 py-2">Тип</th>
-                      <th className="px-3 py-2 text-right">Загрузка (т)</th>
-                      <th className="px-3 py-2 text-right">Выпуск (т)</th>
-                      <th className="px-3 py-2 text-right">% от нормы</th>
-                      <th className="px-3 py-2 text-right">Потери сырья (т)</th>
-                      <th className="px-3 py-2 text-right">Потери продукции (т)</th>
+                      <th className="px-3 py-2 text-right">Факт выпуск (т/сут)</th>
+                      <th className="px-3 py-2 text-right">Норма выпуск (т/сут)</th>
+                      <th className="px-3 py-2 text-right">Сокращение выпуска (т)</th>
+                      <th className="px-3 py-2 text-right">% загрузки</th>
+                      <th className="px-3 py-2">Обоснование</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {downtimeData.events.map((e, i) => (
+                    {downtimeData.events.map((e, i) => {
+                      const hours = e.days * 24
+                      const duration = e.days === 1 ? '1 дн (24 ч)' : `${e.days} дн (${hours} ч)`
+                      const lostOut = e.lost_output_tons ?? 0
+                      return (
                       <tr key={i} className="border-b border-dark-border/50 hover:bg-white/5">
-                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.date}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.unit_name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-dark-text font-medium">{e.unit_name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.start_date}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-dark-text">{e.end_date}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-dark-text whitespace-nowrap">{duration}</td>
                         <td className="px-3 py-2">
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                             e.type === 'stop'
                               ? 'bg-accent-red/10 text-accent-red'
                               : 'bg-accent-yellow/10 text-accent-yellow'
                           }`}>
-                            {e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка'}
+                            {e.type === 'stop' ? 'Остановка' : 'Снижение'}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{e.consumed}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{e.produced}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-accent-red">
+                          {lostOut > 0 ? `−${lostOut.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}` : '0'}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">
-                          <span className={e.load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>
-                            {e.load_pct}%
+                          <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>
+                            {e.avg_load_pct}%
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{e.lost_input_tons}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-accent-red">{e.lost_output_tons}</td>
+                        <td className="px-3 py-2 text-dark-muted text-xs max-w-xs">{e.reason}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
-          )}
+            )
+          })()}
 
           {/* Recommendation */}
           <div className="p-3 bg-dark-bg/50 border border-dark-border rounded-lg text-xs text-dark-muted space-y-1.5">

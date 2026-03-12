@@ -2,7 +2,7 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ================================================
-echo   НПЗ МБ — Полная сборка v1.2.2
+echo   НПЗ МБ — Сборка v1.2.3
 echo ================================================
 echo.
 
@@ -13,26 +13,28 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-node --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ОШИБКА: Node.js не найден. Установите Node.js 20+
-    pause
-    exit /b
-)
-
-echo [1/4] Установка Python-зависимостей...
+echo [1/3] Установка Python-зависимостей...
 pip install -r requirements.txt pyinstaller -q
 
-echo [2/4] Сборка фронтенда...
-cd frontend
-call npm ci
-call npm run build
-cd ..
+if exist frontend\dist\index.html (
+    echo [2/3] Фронтенд уже собран, пропускаю...
+) else (
+    node --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo ОШИБКА: frontend\dist не найден и Node.js не установлен.
+        pause
+        exit /b
+    )
+    echo [2/3] Сборка фронтенда...
+    cd frontend
+    call npm ci
+    call npm run build
+    cd ..
+)
 
-echo [3/4] Сборка server.exe...
+echo [3/3] Сборка server.exe...
 pyinstaller server.spec --distpath release --workpath build_tmp -y
 
-echo [4/4] Сборка папки НПЗ_МБ...
 if exist release\NPZ_MB rd /s /q release\NPZ_MB
 mkdir release\NPZ_MB
 mkdir release\NPZ_MB\data
@@ -48,8 +50,7 @@ rd /s /q build_tmp
 echo.
 echo ================================================
 echo   Готово! Папка: release\NPZ_MB\
-echo   Скопируйте на флешку, положите .xlsm в data\
-echo   Запуск: START.bat
+echo   Положите .xlsm в data\, запуск: START.bat
 echo ================================================
 pause
 exit
