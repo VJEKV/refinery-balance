@@ -98,8 +98,8 @@ function formatDuration(days) {
 
 export default function OverviewPage() {
   const { dateParams } = useDateFilter()
-  const [expandedMethod, setExpandedMethod] = useState(null)
-  const [expandedUnit, setExpandedUnit] = useState(null)
+  const [expandedMethods, setExpandedMethods] = useState(new Set())
+  const [expandedUnits, setExpandedUnits] = useState(new Set())
   const [infoOpen, setInfoOpen] = useState(null) // which method's info panel is open
 
   const { data, isLoading } = useQuery({
@@ -134,12 +134,21 @@ export default function OverviewPage() {
   if (!data) return <div className="text-dark-muted">Нет данных. Загрузите файл .xlsm</div>
 
   const toggleMethod = (key) => {
-    setExpandedMethod(prev => prev === key ? null : key)
-    setExpandedUnit(null)
+    setExpandedMethods(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   const toggleUnit = (unitCode) => {
-    setExpandedUnit(prev => prev === unitCode ? null : unitCode)
+    setExpandedUnits(prev => {
+      const next = new Set(prev)
+      if (next.has(unitCode)) next.delete(unitCode)
+      else next.add(unitCode)
+      return next
+    })
   }
 
   const toggleInfo = (key, e) => {
@@ -163,7 +172,7 @@ export default function OverviewPage() {
         {Object.entries(methodConfig).map(([key, cfg]) => {
           const Icon = cfg.icon
           const s = summary?.[key] || { total: 0, critical: 0, warn: 0 }
-          const isMethodOpen = expandedMethod === key
+          const isMethodOpen = expandedMethods.has(key)
           const unitGroups = anomalyTree[key] || {}
           const unitCount = Object.keys(unitGroups).length
 
@@ -243,7 +252,7 @@ export default function OverviewPage() {
               {isMethodOpen && s.total > 0 && (
                 <div className="border-t border-dark-border">
                   {Object.entries(unitGroups).map(([unitCode, unitGroup]) => {
-                    const isUnitOpen = expandedUnit === `${key}__${unitCode}`
+                    const isUnitOpen = expandedUnits.has(`${key}__${unitCode}`)
                     return (
                       <div key={unitCode}>
                         <button
@@ -406,10 +415,10 @@ function exportProductsExcel(products, unitName, dateStr) {
   XLSX.writeFile(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
 }
 
-function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
+function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['reconGapProducts', unitCode, dateStr],
-    queryFn: () => api.get('/anomalies/recon-gap-products', { params: { unit: unitCode, date: dateStr } }).then(r => r.data),
+    queryKey: ['productDetails', unitCode, dateStr],
+    queryFn: () => api.get('/anomalies/product-details', { params: { unit: unitCode, date: dateStr } }).then(r => r.data),
   })
 
   if (isLoading) return (
@@ -421,6 +430,9 @@ function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
   if (inputs.length === 0 && outputs.length === 0) return (
     <tr><td colSpan={colSpan} className="px-4 py-2 text-xs text-dark-muted">Нет данных по продуктам</td></tr>
   )
+
+  const isBalance = method === 'balance_closure'
+  const isSpc = method === 'spc'
 
   const renderSection = (items, label, color) => items.length > 0 && (
     <>
@@ -434,11 +446,26 @@ function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
             <td className={`${tdCls} text-dark-text pl-6`} title={p.product}>↳ {p.product}</td>
-            <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
-            <td colSpan={colSpan - 5} className={tdCls} />
+            {isSpc ? (
+              <>
+                <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td colSpan={colSpan - 2} className={tdCls} />
+              </>
+            ) : (
+              <>
+                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                {!isBalance && <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>}
+                {isBalance ? (
+                  <td colSpan={colSpan - 2} className={tdCls} />
+                ) : (
+                  <>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
+                    <td colSpan={colSpan - 5} className={tdCls} />
+                  </>
+                )}
+              </>
+            )}
           </tr>
         )
       })}
@@ -552,15 +579,16 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
             </thead>
             <tbody>
               {items.map((a, i) => {
-                const isDateExpanded = isReconGap && expandedDate === a.date
+                const canExpand = isReconGap || isBalanceClosure || isSpc
+                const isDateExpanded = canExpand && expandedDate === a.date
                 return (
                   <React.Fragment key={i}>
                     <tr
-                      className={`hover:bg-white/5 ${isReconGap ? 'cursor-pointer' : ''} ${isDateExpanded ? 'bg-accent-blue/5' : ''}`}
-                      onClick={isReconGap ? () => setExpandedDate(isDateExpanded ? null : a.date) : undefined}
+                      className={`hover:bg-white/5 ${canExpand ? 'cursor-pointer' : ''} ${isDateExpanded ? 'bg-accent-blue/5' : ''}`}
+                      onClick={canExpand ? () => setExpandedDate(isDateExpanded ? null : a.date) : undefined}
                     >
                       <td className={`${tdCls} text-dark-text whitespace-nowrap`}>
-                        {isReconGap && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
+                        {canExpand && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
                         {a.date}
                       </td>
                       {isBalanceClosure && (
@@ -618,11 +646,12 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                       </td>
                     </tr>
                     {isDateExpanded && (
-                      <ReconGapProductsSubRow
+                      <ProductsSubRow
                         unitCode={unitCode || a.unit}
                         dateStr={a.date}
                         unitName={unitName}
                         colSpan={totalCols}
+                        method={method}
                       />
                     )}
                   </React.Fragment>

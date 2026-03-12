@@ -81,7 +81,7 @@ function exportAnomaliesExcel(anomalies, unitName, methodLabel) {
 
 export default function UnitCard({ unit, anomalies = [], activeMethod = null }) {
   const [expanded, setExpanded] = useState(false)
-  const [openSection, setOpenSection] = useState(null)
+  const [openSections, setOpenSections] = useState(new Set())
   const navigate = useNavigate()
   const { dateParams } = useDateFilter()
 
@@ -94,7 +94,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
   const { data: downtimeData } = useQuery({
     queryKey: ['downtimeUnit', unit.code, dateParams],
     queryFn: () => api.get('/anomalies/downtime-details', { params: { unit: unit.code, ...dateParams } }).then(r => r.data),
-    enabled: openSection === 'downtime',
+    enabled: openSections.has('downtime'),
   })
 
   const unitAnomalies = useMemo(() =>
@@ -112,14 +112,25 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
   }, [unitAnomalies])
 
   const hasActiveMethodAnomalies = activeMethod ? (anomaliesByMethod[activeMethod]?.length > 0) : true
-  const effectiveOpenSection = activeMethod && hasActiveMethodAnomalies ? activeMethod : openSection
+
+  // Compute effective open sections: user-opened + activeMethod
+  const effectiveOpenSections = useMemo(() => {
+    const s = new Set(openSections)
+    if (activeMethod && hasActiveMethodAnomalies) s.add(activeMethod)
+    return s
+  }, [openSections, activeMethod, hasActiveMethodAnomalies])
 
   const fmt = (v) => Math.abs(v).toLocaleString('ru-RU', { maximumFractionDigits: 0 })
 
   if (activeMethod && !hasActiveMethodAnomalies) return null
 
   const toggleSection = (method) => {
-    setOpenSection(prev => prev === method ? null : method)
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      if (next.has(method)) next.delete(method)
+      else next.add(method)
+      return next
+    })
   }
 
   return (
@@ -182,7 +193,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
             const meta = methodMeta[method]
             if (!meta) return null
             const Icon = meta.icon
-            const isOpen = effectiveOpenSection === method
+            const isOpen = effectiveOpenSections.has(method)
             return (
               <button
                 key={method}
@@ -231,23 +242,24 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
             <div className="text-sm text-dark-muted py-3">Загрузка аналитики...</div>
           ) : detail ? (
             <>
-              {/* Downtime accordion */}
-              {effectiveOpenSection === 'downtime' && (
-                <DowntimeSection
-                  data={downtimeData}
-                  unitName={unit.name}
-                />
-              )}
-
-              {/* Other method accordions */}
-              {effectiveOpenSection && effectiveOpenSection !== 'downtime' && anomaliesByMethod[effectiveOpenSection] && (
-                <AnomalyMethodSection
-                  method={effectiveOpenSection}
-                  anomalies={anomaliesByMethod[effectiveOpenSection]}
-                  unitName={unit.name}
-                  unitCode={unit.code}
-                />
-              )}
+              {/* Method accordions — multiple can be open */}
+              {Array.from(effectiveOpenSections).map(section => {
+                if (section === 'downtime') {
+                  return <DowntimeSection key={section} data={downtimeData} unitName={unit.name} />
+                }
+                if (anomaliesByMethod[section]) {
+                  return (
+                    <AnomalyMethodSection
+                      key={section}
+                      method={section}
+                      anomalies={anomaliesByMethod[section]}
+                      unitName={unit.name}
+                      unitCode={unit.code}
+                    />
+                  )
+                }
+                return null
+              })}
 
               {/* Charts — always visible */}
               {detail.spc?.dates?.length > 0 && (
@@ -381,10 +393,10 @@ function exportProductsExcel(products, unitName, dateStr) {
   XLSX.writeFile(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
 }
 
-function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
+function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['reconGapProducts', unitCode, dateStr],
-    queryFn: () => api.get('/anomalies/recon-gap-products', { params: { unit: unitCode, date: dateStr } }).then(r => r.data),
+    queryKey: ['productDetails', unitCode, dateStr],
+    queryFn: () => api.get('/anomalies/product-details', { params: { unit: unitCode, date: dateStr } }).then(r => r.data),
   })
 
   if (isLoading) return (
@@ -396,6 +408,9 @@ function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
   if (inputs.length === 0 && outputs.length === 0) return (
     <tr><td colSpan={colSpan} className="px-4 py-2 text-xs text-dark-muted">Нет данных по продуктам</td></tr>
   )
+
+  const isBalance = method === 'balance_closure'
+  const isSpc = method === 'spc'
 
   const renderSection = (items, label, color) => items.length > 0 && (
     <>
@@ -409,11 +424,26 @@ function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
             <td className={`${tdCls} text-dark-text pl-6`} title={p.product}>↳ {p.product}</td>
-            <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
-            <td colSpan={colSpan - 5} className={tdCls} />
+            {isSpc ? (
+              <>
+                <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td colSpan={colSpan - 2} className={tdCls} />
+              </>
+            ) : (
+              <>
+                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                {!isBalance && <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>}
+                {isBalance ? (
+                  <td colSpan={colSpan - 2} className={tdCls} />
+                ) : (
+                  <>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
+                    <td colSpan={colSpan - 5} className={tdCls} />
+                  </>
+                )}
+              </>
+            )}
           </tr>
         )
       })}
@@ -527,15 +557,16 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
           </thead>
           <tbody>
             {anomalies.map((a, i) => {
-              const isDateExpanded = isReconGap && expandedDate === a.date
+              const canExpand = isReconGap || isBalanceClosure || isSpc
+              const isDateExpanded = canExpand && expandedDate === a.date
               return (
                 <React.Fragment key={i}>
                   <tr
-                    className={`hover:bg-white/5 ${isReconGap ? 'cursor-pointer' : ''} ${isDateExpanded ? 'bg-accent-blue/5' : ''}`}
-                    onClick={isReconGap ? () => setExpandedDate(isDateExpanded ? null : a.date) : undefined}
+                    className={`hover:bg-white/5 ${canExpand ? 'cursor-pointer' : ''} ${isDateExpanded ? 'bg-accent-blue/5' : ''}`}
+                    onClick={canExpand ? () => setExpandedDate(isDateExpanded ? null : a.date) : undefined}
                   >
                     <td className={`${tdCls} text-dark-text whitespace-nowrap`}>
-                      {isReconGap && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
+                      {canExpand && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
                       {a.date}
                     </td>
                     {isBalanceClosure && (
@@ -593,11 +624,12 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                     </td>
                   </tr>
                   {isDateExpanded && (
-                    <ReconGapProductsSubRow
+                    <ProductsSubRow
                       unitCode={unitCode || a.unit}
                       dateStr={a.date}
                       unitName={unitName}
                       colSpan={totalCols}
+                      method={method}
                     />
                   )}
                 </React.Fragment>

@@ -243,15 +243,25 @@ def recon_gap_products(
     month: Optional[int] = None,
 ):
     """Расхождения по каждому продукту для конкретной установки и даты."""
-    from datetime import date as date_type
+    return _get_product_details(unit, date)
 
-    u = store.get_unit(unit)
+
+@router.get("/product-details")
+def product_details(
+    unit: str = Query(...),
+    date: str = Query(...),
+):
+    """Per-product measured/reconciled for a unit on a specific date.
+    Used by all method drill-downs (recon_gap, balance_closure, spc)."""
+    return _get_product_details(unit, date)
+
+
+def _get_product_details(unit_code: str, ds: str):
+    u = store.get_unit(unit_code)
     if not u:
         return {"inputs": [], "outputs": []}
 
     data = u["data"]
-    ds = date  # "YYYY-MM-DD"
-
     result = {}
     for direction in ("inputs", "outputs"):
         df = data.get(direction)
@@ -276,7 +286,6 @@ def recon_gap_products(
                 "delta_tons": delta_tons,
                 "delta_pct": delta_pct,
             })
-        # Sort by delta descending
         items.sort(key=lambda x: x["delta_pct"], reverse=True)
         result[direction] = items
 
