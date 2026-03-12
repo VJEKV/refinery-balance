@@ -232,3 +232,52 @@ def anomaly_summary(
             "warn": len([a for a in method_anomalies if a["severity"] == "warn"]),
         }
     return summary
+
+
+@router.get("/recon-gap-products")
+def recon_gap_products(
+    unit: str = Query(...),
+    date: str = Query(...),
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+):
+    """Расхождения по каждому продукту для конкретной установки и даты."""
+    from datetime import date as date_type
+
+    u = store.get_unit(unit)
+    if not u:
+        return {"inputs": [], "outputs": []}
+
+    data = u["data"]
+    ds = date  # "YYYY-MM-DD"
+
+    result = {}
+    for direction in ("inputs", "outputs"):
+        df = data.get(direction)
+        if df is None or df.empty:
+            result[direction] = []
+            continue
+
+        meas_col = f"{ds}_meas"
+        recon_col = f"{ds}_recon"
+        items = []
+        for _, row in df.iterrows():
+            m = float(row.get(meas_col, 0) or 0)
+            r = float(row.get(recon_col, 0) or 0)
+            if m == 0 and r == 0:
+                continue
+            delta_tons = round(abs(m - r), 2)
+            delta_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
+            items.append({
+                "product": row["product"],
+                "measured": round(m, 2),
+                "reconciled": round(r, 2),
+                "delta_tons": delta_tons,
+                "delta_pct": delta_pct,
+            })
+        # Sort by delta descending
+        items.sort(key=lambda x: x["delta_pct"], reverse=True)
+        result[direction] = items
+
+    return result

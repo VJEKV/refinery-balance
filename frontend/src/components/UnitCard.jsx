@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp, Factory, FileText, Download, Clock, AlertTriangle, BarChart3, Activity, GitBranch } from 'lucide-react'
@@ -245,6 +245,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
                   method={effectiveOpenSection}
                   anomalies={anomaliesByMethod[effectiveOpenSection]}
                   unitName={unit.name}
+                  unitCode={unit.code}
                 />
               )}
 
@@ -357,7 +358,92 @@ function DowntimeSection({ data, unitName }) {
   )
 }
 
-function AnomalyMethodSection({ method, anomalies, unitName }) {
+function exportProductsExcel(products, unitName, dateStr) {
+  const rows = []
+  ;['inputs', 'outputs'].forEach(dir => {
+    const label = dir === 'inputs' ? 'Сырьё' : 'Продукция'
+    ;(products[dir] || []).forEach(p => {
+      rows.push({
+        'Дата': dateStr,
+        'Тип': label,
+        'Продукт': p.product,
+        'Замер (т)': p.measured,
+        'Согласов (т)': p.reconciled,
+        'Δ (т)': p.delta_tons,
+        'Δ (%)': p.delta_pct,
+      })
+    })
+  })
+  if (rows.length === 0) return
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Продукты')
+  XLSX.writeFile(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
+}
+
+function ReconGapProductsSubRow({ unitCode, dateStr, unitName, colSpan }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['reconGapProducts', unitCode, dateStr],
+    queryFn: () => api.get('/anomalies/recon-gap-products', { params: { unit: unitCode, date: dateStr } }).then(r => r.data),
+  })
+
+  if (isLoading) return (
+    <tr><td colSpan={colSpan} className="px-4 py-2 text-xs text-dark-muted">Загрузка продуктов...</td></tr>
+  )
+
+  const inputs = data?.inputs || []
+  const outputs = data?.outputs || []
+  if (inputs.length === 0 && outputs.length === 0) return (
+    <tr><td colSpan={colSpan} className="px-4 py-2 text-xs text-dark-muted">Нет данных по продуктам</td></tr>
+  )
+
+  const renderSection = (items, label, color) => items.length > 0 && (
+    <>
+      <tr>
+        <td colSpan={colSpan} className="px-4 pt-2 pb-1">
+          <span className={`text-[10px] font-semibold ${color}`}>{label} ({items.length} поз.)</span>
+        </td>
+      </tr>
+      {items.map((p, j) => {
+        const isHigh = p.delta_pct > 5
+        return (
+          <tr key={`${label}-${j}`} className="bg-[#0a1225]">
+            <td className={`${tdCls} text-dark-text pl-6`} title={p.product}>↳ {p.product}</td>
+            <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+            <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+            <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
+            <td colSpan={colSpan - 5} className={tdCls} />
+          </tr>
+        )
+      })}
+    </>
+  )
+
+  return (
+    <>
+      <tr>
+        <td colSpan={colSpan} className="bg-[#0a1225] px-4 py-1 border-t border-accent-blue/20">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-accent-blue font-semibold">Продукты за {dateStr}</span>
+            <button
+              onClick={() => exportProductsExcel(data, unitName, dateStr)}
+              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
+            >
+              <Download size={10} /> Excel
+            </button>
+          </div>
+        </td>
+      </tr>
+      {renderSection(inputs, 'Сырьё', 'text-accent-blue')}
+      {renderSection(outputs, 'Продукция', 'text-accent-green')}
+      <tr><td colSpan={colSpan} className="bg-[#0a1225] h-1 border-b border-accent-blue/20" /></tr>
+    </>
+  )
+}
+
+function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
+  const [expandedDate, setExpandedDate] = useState(null)
   const meta = methodMeta[method]
   if (!meta || !anomalies || anomalies.length === 0) return null
   const Icon = meta.icon
@@ -365,6 +451,9 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
   const isReconGap = method === 'recon_gap'
   const isSpc = method === 'spc'
   const isCrossUnit = method === 'cross_unit'
+
+  const reconColCount = 9 // date + 8 recon cols
+  const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 6 : isSpc ? 6 : isCrossUnit ? 8 : 5
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
@@ -382,9 +471,9 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
+      <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-dark-card">
+          <thead className="sticky top-0 bg-dark-card z-10">
             <tr className="text-left text-dark-muted">
               <th className={thCls}>Дата</th>
               {isBalanceClosure && (
@@ -437,64 +526,83 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
             </tr>
           </thead>
           <tbody>
-            {anomalies.map((a, i) => (
-              <tr key={i} className="hover:bg-white/5">
-                <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{a.date}</td>
-                {isBalanceClosure && (
-                  <>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
-                  </>
-                )}
-                {isReconGap && (
-                  <>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_tons ?? Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_pct ?? 0).toFixed(2)}%</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_tons ?? Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_pct ?? 0).toFixed(2)}%</td>
-                  </>
-                )}
-                {isCrossUnit && (
-                  <>
-                    <td className={`${tdCls} text-dark-text`}>{a.product}</td>
-                    <td className={`${tdCls} text-dark-text`}>{a.source_unit_name || '—'}</td>
-                    <td className={`${tdCls} text-dark-text`}>{a.target_unit_name || '—'}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(1)}%</td>
-                  </>
-                )}
-                {isSpc && (
-                  <>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(2)}σ</td>
-                  </>
-                )}
-                {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
-                  <>
-                    <td className={`${tdCls} text-dark-muted`}>{a.description}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{a.value}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{a.threshold}</td>
-                  </>
-                )}
-                <td className={tdCls}>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                    a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
-                  }`}>
-                    {a.severity === 'critical' ? 'Критично' : 'Внимание'}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {anomalies.map((a, i) => {
+              const isDateExpanded = isReconGap && expandedDate === a.date
+              return (
+                <React.Fragment key={i}>
+                  <tr
+                    className={`hover:bg-white/5 ${isReconGap ? 'cursor-pointer' : ''} ${isDateExpanded ? 'bg-accent-blue/5' : ''}`}
+                    onClick={isReconGap ? () => setExpandedDate(isDateExpanded ? null : a.date) : undefined}
+                  >
+                    <td className={`${tdCls} text-dark-text whitespace-nowrap`}>
+                      {isReconGap && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
+                      {a.date}
+                    </td>
+                    {isBalanceClosure && (
+                      <>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                      </>
+                    )}
+                    {isReconGap && (
+                      <>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_tons ?? Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_pct ?? 0).toFixed(2)}%</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_tons ?? Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_pct ?? 0).toFixed(2)}%</td>
+                      </>
+                    )}
+                    {isCrossUnit && (
+                      <>
+                        <td className={`${tdCls} text-dark-text`}>{a.product}</td>
+                        <td className={`${tdCls} text-dark-text`}>{a.source_unit_name || '—'}</td>
+                        <td className={`${tdCls} text-dark-text`}>{a.target_unit_name || '—'}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(1)}%</td>
+                      </>
+                    )}
+                    {isSpc && (
+                      <>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(2)}σ</td>
+                      </>
+                    )}
+                    {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
+                      <>
+                        <td className={`${tdCls} text-dark-muted`}>{a.description}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{a.value}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{a.threshold}</td>
+                      </>
+                    )}
+                    <td className={tdCls}>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
+                      }`}>
+                        {a.severity === 'critical' ? 'Критично' : 'Внимание'}
+                      </span>
+                    </td>
+                  </tr>
+                  {isDateExpanded && (
+                    <ReconGapProductsSubRow
+                      unitCode={unitCode || a.unit}
+                      dateStr={a.date}
+                      unitName={unitName}
+                      colSpan={totalCols}
+                    />
+                  )}
+                </React.Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
