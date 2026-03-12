@@ -50,4 +50,4 @@ jobs:
         with:
           name: NPZ_MB
           path: release/NPZ_MB/
-          retention-days: 30
+          retention-days: 7
