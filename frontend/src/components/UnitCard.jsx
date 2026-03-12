@@ -24,6 +24,39 @@ const methodMeta = {
 const thCls = 'px-2 py-1.5 border border-dark-border/40'
 const tdCls = 'px-2 py-1.5 border border-dark-border/20'
 
+/* ---- Sortable table helpers ---- */
+function useSortTable() {
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
+  const toggle = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
+  return { sortCol, sortDir, toggle }
+}
+
+function sortData(items, col, dir, getVal) {
+  if (!col || !items) return items
+  const getter = getVal || ((item, c) => item[c])
+  return [...items].sort((a, b) => {
+    let va = getter(a, col) ?? '', vb = getter(b, col) ?? ''
+    const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'ru')
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
+function SortTh({ children, col, sortCol, sortDir, onSort, className = '' }) {
+  const active = sortCol === col
+  return (
+    <th className={`${className} cursor-pointer select-none hover:text-dark-text whitespace-nowrap`} onClick={() => onSort(col)}>
+      <span className="inline-flex items-center gap-0.5">
+        {children}
+        <span className="text-[9px] opacity-60">{active ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+      </span>
+    </th>
+  )
+}
+
 function exportDowntimeExcel(events, unitName) {
   if (!events || events.length === 0) return
   const rows = events.map(e => ({
@@ -47,36 +80,37 @@ function exportDowntimeExcel(events, unitName) {
   XLSX.writeFile(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
-function exportAnomaliesExcel(anomalies, unitName, methodLabel) {
+function exportAnomaliesExcel(anomalies, unitName, method) {
   if (!anomalies || anomalies.length === 0) return
+  const label = methodMeta[method]?.label || method
+  const sev = a => a.severity === 'critical' ? 'Критично' : 'Внимание'
   const rows = anomalies.map(a => {
-    const row = {
-      'Дата': a.date,
-      'Тип': methodMeta[a.method]?.label || a.method,
+    if (method === 'balance_closure') return {
+      'Дата': a.date, 'Вход замер (т)': a.input_measured, 'Выход замер (т)': a.output_measured,
+      'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
     }
-    if (a.input_measured != null) {
-      row['Вход изм (т)'] = a.input_measured
-      row['Вход согл (т)'] = a.input_reconciled
-      row['Выход изм (т)'] = a.output_measured
-      row['Выход согл (т)'] = a.output_reconciled
-      row['Δ (т)'] = a.delta_tons
-      row['Δ (% от изм)'] = a.delta_pct
+    if (method === 'recon_gap') return {
+      'Дата': a.date, 'Замер сырьё (т)': a.input_measured, 'Согласов сырьё (т)': a.input_reconciled,
+      'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
+      'Замер продукц (т)': a.output_measured, 'Согласов продукц (т)': a.output_reconciled,
+      'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
     }
-    if (a.consumed != null) {
-      row['Загрузка (т)'] = a.consumed
-      row['Выпуск (т)'] = a.produced
-      row['Среднее (т)'] = a.mean
+    if (method === 'spc') return {
+      'Дата': a.date, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
+      'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
     }
-    row['Описание'] = a.description || ''
-    row['Значение'] = a.value
-    row['Порог'] = a.threshold
-    row['Уровень'] = a.severity === 'critical' ? 'Критично' : 'Внимание'
-    return row
+    if (method === 'cross_unit') return {
+      'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
+      'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
+      'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
+      'Δ%': a.value, 'Уровень': sev(a),
+    }
+    return { 'Дата': a.date, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
   })
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Аномалии')
-  XLSX.writeFile(wb, `${methodLabel}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
+  XLSX.writeFile(wb, `${label}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export default function UnitCard({ unit, anomalies = [], activeMethod = null }) {
@@ -294,11 +328,14 @@ function formatDuration(days) {
 }
 
 function DowntimeSection({ data, unitName }) {
+  const { sortCol, sortDir, toggle } = useSortTable()
   if (!data) return <div className="text-sm text-dark-muted">Загрузка простоев...</div>
   const events = data.events || []
   if (events.length === 0) return <div className="text-sm text-dark-muted">Простоев не обнаружено</div>
 
   const totalLostOutput = events.reduce((s, e) => s + (e.lost_output_tons ?? 0), 0)
+  const sorted = sortData(events, sortCol, sortDir)
+  const sp = { sortCol, sortDir, onSort: toggle }
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
@@ -321,23 +358,23 @@ function DowntimeSection({ data, unitName }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
-        <table className="w-full text-xs">
+      <div className="overflow-x-auto overflow-y-auto">
+        <table className="w-full text-xs min-w-max">
           <thead className="sticky top-0 bg-dark-card">
             <tr className="text-left text-dark-muted">
-              <th className={thCls}>Начало</th>
-              <th className={thCls}>Конец</th>
-              <th className={`${thCls} text-right`}>Длительность</th>
-              <th className={thCls}>Тип</th>
-              <th className={`${thCls} text-right`}>Факт выпуск (т/сут)</th>
-              <th className={`${thCls} text-right`}>Норма выпуск (т/сут)</th>
-              <th className={`${thCls} text-right`}>Сокращение выпуска (т)</th>
-              <th className={`${thCls} text-right`}>% загрузки</th>
-              <th className={thCls}>Обоснование</th>
+              <SortTh col="start_date" {...sp} className={thCls}>Начало</SortTh>
+              <SortTh col="end_date" {...sp} className={thCls}>Конец</SortTh>
+              <SortTh col="days" {...sp} className={`${thCls} text-right`}>Длительность</SortTh>
+              <SortTh col="type" {...sp} className={thCls}>Тип</SortTh>
+              <SortTh col="fact_output" {...sp} className={`${thCls} text-right`}>Факт выпуск (т/сут)</SortTh>
+              <SortTh col="norm_output" {...sp} className={`${thCls} text-right`}>Норма выпуск (т/сут)</SortTh>
+              <SortTh col="lost_output_tons" {...sp} className={`${thCls} text-right`}>Сокращение выпуска (т)</SortTh>
+              <SortTh col="avg_load_pct" {...sp} className={`${thCls} text-right`}>% загрузки</SortTh>
+              <SortTh col="reason" {...sp} className={thCls}>Обоснование</SortTh>
             </tr>
           </thead>
           <tbody>
-            {events.map((e, i) => {
+            {sorted.map((e, i) => {
               const lostOut = e.lost_output_tons ?? 0
               return (
                 <tr key={i} className="hover:bg-white/5">
@@ -474,6 +511,7 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
 
 function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
   const [expandedDate, setExpandedDate] = useState(null)
+  const { sortCol, sortDir, toggle } = useSortTable()
   const meta = methodMeta[method]
   if (!meta || !anomalies || anomalies.length === 0) return null
   const Icon = meta.icon
@@ -485,6 +523,13 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
   const reconColCount = 9 // date + 8 recon cols
   const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 6 : isSpc ? 6 : isCrossUnit ? 8 : 5
 
+  const getVal = (item, col) => {
+    if (col === '_loss') return (item.output_value ?? 0) - (item.input_value ?? 0)
+    return item[col]
+  }
+  const sorted = sortData(anomalies, sortCol, sortDir, getVal)
+  const sp = { sortCol, sortDir, onSort: toggle }
+
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -493,7 +538,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
           {meta.label} ({anomalies.length} событий)
         </h4>
         <button
-          onClick={() => exportAnomaliesExcel(anomalies, unitName, meta.label)}
+          onClick={() => exportAnomaliesExcel(anomalies, unitName, method)}
           className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
         >
           <Download size={12} />
@@ -501,62 +546,62 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
-        <table className="w-full text-xs">
+      <div className="overflow-x-auto overflow-y-auto">
+        <table className="w-full text-xs min-w-max">
           <thead className="sticky top-0 bg-dark-card z-10">
             <tr className="text-left text-dark-muted">
-              <th className={thCls}>Дата</th>
+              <SortTh col="date" {...sp} className={thCls}>Дата</SortTh>
               {isBalanceClosure && (
                 <>
-                  <th className={`${thCls} text-right`}>Вход замер (т)</th>
-                  <th className={`${thCls} text-right`}>Выход замер (т)</th>
-                  <th className={`${thCls} text-right`}>Небаланс (т)</th>
-                  <th className={`${thCls} text-right`}>Небаланс (%)</th>
+                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход замер (т)</SortTh>
+                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход замер (т)</SortTh>
+                  <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
+                  <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)</SortTh>
                 </>
               )}
               {isReconGap && (
                 <>
-                  <th className={`${thCls} text-right`}>Замер сырьё (т)</th>
-                  <th className={`${thCls} text-right`}>Согласов сырьё (т)</th>
-                  <th className={`${thCls} text-right`}>Δ сырьё (т)</th>
-                  <th className={`${thCls} text-right`}>Δ сырьё (%)</th>
-                  <th className={`${thCls} text-right`}>Замер продукц (т)</th>
-                  <th className={`${thCls} text-right`}>Согласов продукц (т)</th>
-                  <th className={`${thCls} text-right`}>Δ продукц (т)</th>
-                  <th className={`${thCls} text-right`}>Δ продукц (%)</th>
+                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Замер сырьё (т)</SortTh>
+                  <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Согласов сырьё (т)</SortTh>
+                  <SortTh col="delta_input_tons" {...sp} className={`${thCls} text-right`}>Δ сырьё (т)</SortTh>
+                  <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)</SortTh>
+                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Замер продукц (т)</SortTh>
+                  <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Согласов продукц (т)</SortTh>
+                  <SortTh col="delta_output_tons" {...sp} className={`${thCls} text-right`}>Δ продукц (т)</SortTh>
+                  <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)</SortTh>
                 </>
               )}
               {isCrossUnit && (
                 <>
-                  <th className={thCls}>Продукт</th>
-                  <th className={thCls}>Откуда</th>
-                  <th className={thCls}>Куда</th>
-                  <th className={`${thCls} text-right`}>Отдано (т)</th>
-                  <th className={`${thCls} text-right`}>Принято (т)</th>
-                  <th className={`${thCls} text-right`}>Потери (т)</th>
-                  <th className={`${thCls} text-right`}>Δ%</th>
+                  <SortTh col="product" {...sp} className={thCls}>Продукт</SortTh>
+                  <SortTh col="source_unit_name" {...sp} className={thCls}>Откуда</SortTh>
+                  <SortTh col="target_unit_name" {...sp} className={thCls}>Куда</SortTh>
+                  <SortTh col="output_value" {...sp} className={`${thCls} text-right`}>Отдано (т)</SortTh>
+                  <SortTh col="input_value" {...sp} className={`${thCls} text-right`}>Принято (т)</SortTh>
+                  <SortTh col="_loss" {...sp} className={`${thCls} text-right`}>Потери (т)</SortTh>
+                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Δ%</SortTh>
                 </>
               )}
               {isSpc && (
                 <>
-                  <th className={`${thCls} text-right`}>Загрузка (т)</th>
-                  <th className={`${thCls} text-right`}>Выпуск (т)</th>
-                  <th className={`${thCls} text-right`}>Среднее (т)</th>
-                  <th className={`${thCls} text-right`}>Отклонение (σ)</th>
+                  <SortTh col="consumed" {...sp} className={`${thCls} text-right`}>Загрузка (т)</SortTh>
+                  <SortTh col="produced" {...sp} className={`${thCls} text-right`}>Выпуск (т)</SortTh>
+                  <SortTh col="mean" {...sp} className={`${thCls} text-right`}>Среднее (т)</SortTh>
+                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Отклонение (σ)</SortTh>
                 </>
               )}
               {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                 <>
-                  <th className={thCls}>Описание</th>
-                  <th className={`${thCls} text-right`}>Значение</th>
-                  <th className={`${thCls} text-right`}>Порог</th>
+                  <SortTh col="description" {...sp} className={thCls}>Описание</SortTh>
+                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Значение</SortTh>
+                  <SortTh col="threshold" {...sp} className={`${thCls} text-right`}>Порог</SortTh>
                 </>
               )}
-              <th className={thCls}>Уровень</th>
+              <SortTh col="severity" {...sp} className={thCls}>Уровень</SortTh>
             </tr>
           </thead>
           <tbody>
-            {anomalies.map((a, i) => {
+            {sorted.map((a, i) => {
               const canExpand = isReconGap || isBalanceClosure || isSpc
               const isDateExpanded = canExpand && expandedDate === a.date
               return (
