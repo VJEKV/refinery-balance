@@ -2,23 +2,37 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ================================================
-echo   Building server.exe
+echo   НПЗ МБ — Полная сборка v1.2.2
 echo ================================================
 echo.
 
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ERROR: Python not found. Install Python 3.11+
+    echo ОШИБКА: Python не найден. Установите Python 3.11+
     pause
     exit /b
 )
 
-echo [1/2] Installing dependencies...
+node --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ОШИБКА: Node.js не найден. Установите Node.js 20+
+    pause
+    exit /b
+)
+
+echo [1/4] Установка Python-зависимостей...
 pip install -r requirements.txt pyinstaller -q
 
-echo [2/2] Building server.exe...
+echo [2/4] Сборка фронтенда...
+cd frontend
+call npm ci
+call npm run build
+cd ..
+
+echo [3/4] Сборка server.exe...
 pyinstaller server.spec --distpath release --workpath build_tmp -y
 
+echo [4/4] Сборка папки НПЗ_МБ...
 if exist release\NPZ_MB rd /s /q release\NPZ_MB
 mkdir release\NPZ_MB
 mkdir release\NPZ_MB\data
@@ -33,7 +47,9 @@ rd /s /q build_tmp
 
 echo.
 echo ================================================
-echo   Done! Copy release\NPZ_MB\ to flash drive
+echo   Готово! Папка: release\NPZ_MB\
+echo   Скопируйте на флешку, положите .xlsm в data\
+echo   Запуск: START.bat
 echo ================================================
 pause
 exit
