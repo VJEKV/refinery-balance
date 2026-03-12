@@ -45,9 +45,14 @@ jobs:
           copy /y START.bat release\NPZ_MB\
           copy /y STOP.bat release\NPZ_MB\
 
+      - name: Get version
+        id: version
+        shell: bash
+        run: echo "ver=$(python -c "import json; print(json.load(open('frontend/package.json'))['version'])")" >> $GITHUB_OUTPUT
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NPZ_MB
+          name: NPZ_MB_v${{ steps.version.outputs.ver }}
           path: release/NPZ_MB/
           retention-days: 7
