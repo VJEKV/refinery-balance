@@ -91,8 +91,12 @@ def downtime_details(
 ):
     """Расширенная аналитика простоев: события с началом, концом, днями, обоснованием."""
     thresholds = _get_thresholds()
-    filtered_dates = store.filter_dates(date_from, date_to, month)
-    target_dates = filtered_dates if filtered_dates else store.dates
+    has_filter = date_from or date_to or (month is not None)
+    if has_filter:
+        filtered_dates = store.filter_dates(date_from, date_to, month)
+        target_dates = filtered_dates if filtered_dates else []
+    else:
+        target_dates = store.dates
     if not target_dates:
         return {"events": [], "unit_stats": []}
 

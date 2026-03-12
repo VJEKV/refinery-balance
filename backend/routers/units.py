@@ -42,27 +42,37 @@ def get_unit(
     data = unit["data"]
 
     # Apply date filter
-    filtered = store.filter_dates(date_from, date_to, month)
-    if filtered:
+    has_filter = date_from or date_to or (month is not None)
+    if has_filter:
+        filtered = store.filter_dates(date_from, date_to, month)
         dates = [d for d in filtered if d in all_unit_dates]
     else:
         dates = all_unit_dates
-    anomalies = detect_all(data, dates, thresholds)
 
+    # Detect anomalies on FULL data (proper index alignment), then filter results
+    anomalies = detect_all(data, all_unit_dates, thresholds)
+    if has_filter and dates:
+        target_date_strs = {d.isoformat() for d in dates}
+        anomalies = [a for a in anomalies if a["date"] in target_date_strs]
+    elif has_filter and not dates:
+        anomalies = []
+
+    # SPC/CUSUM/ReconGap — compute on FULL data for correct statistics
     series = store.get_unit_series(code)
-    spc_data = get_spc_data(data, dates)
-    cusum_data = get_cusum_data(data, dates, thresholds)
-    recon_data = get_recon_gap_data(data, dates)
+    spc_data = get_spc_data(data, all_unit_dates)
+    cusum_data = get_cusum_data(data, all_unit_dates, thresholds)
+    recon_data = get_recon_gap_data(data, all_unit_dates)
 
-    # Products with totals over entire period
+    # Products with totals over filtered period
+    target_dates = dates if dates else all_unit_dates
     products = {"inputs": [], "outputs": []}
-    if dates:
+    if target_dates:
         for direction in ("inputs", "outputs"):
             df = data.get(direction)
             if df is None:
                 continue
-            meas_cols = [f"{d.strftime('%Y-%m-%d')}_meas" for d in dates]
-            recon_cols = [f"{d.strftime('%Y-%m-%d')}_recon" for d in dates]
+            meas_cols = [f"{d.strftime('%Y-%m-%d')}_meas" for d in target_dates]
+            recon_cols = [f"{d.strftime('%Y-%m-%d')}_recon" for d in target_dates]
             items = []
             for _, row in df.iterrows():
                 total_m = sum(float(row.get(c, 0) or 0) for c in meas_cols if c in row.index)
@@ -82,26 +92,30 @@ def get_unit(
             products[direction] = items
 
     # Per-product recon gap time series
-    product_recon = get_product_recon_gaps(data, dates)
+    product_recon = get_product_recon_gaps(data, target_dates)
 
-    # Summary stats
+    # Summary stats — aggregate over filtered period using proper indices
     summary = data["summary"]
     consumed_m = summary["consumed"]["measured"]
     consumed_r = summary["consumed"]["reconciled"]
     produced_r = summary["produced"]["reconciled"]
     imb_rel_m = summary["imbalance_rel"]["measured"]
 
-    latest_idx = len(dates) - 1 if dates else 0
-    total_in_m = consumed_m[latest_idx] if latest_idx < len(consumed_m) else 0
-    total_in_r = consumed_r[latest_idx] if latest_idx < len(consumed_r) else 0
-    total_out_r = produced_r[latest_idx] if latest_idx < len(produced_r) else 0
-    imbalance = imb_rel_m[latest_idx] * 100 if latest_idx < len(imb_rel_m) else 0
+    # Find correct indices in the full date list
+    target_set = set(target_dates)
+    indices = [i for i, d in enumerate(all_unit_dates) if d in target_set]
+
+    total_in_m = sum(consumed_m[i] for i in indices if i < len(consumed_m))
+    total_in_r = sum(consumed_r[i] for i in indices if i < len(consumed_r))
+    total_out_r = sum(produced_r[i] for i in indices if i < len(produced_r))
+    imb_vals = [imb_rel_m[i] * 100 for i in indices if i < len(imb_rel_m)]
+    imbalance = sum(imb_vals) / len(imb_vals) if imb_vals else 0
     recon_gap_val = abs(total_in_m - total_in_r) / abs(total_in_m) * 100 if total_in_m else 0
 
     return {
         "code": code,
         "name": unit["name"],
-        "dates": [d.isoformat() for d in dates],
+        "dates": [d.isoformat() for d in target_dates],
         "kpi": {
             "input_measured": round(total_in_m, 2),
             "input_reconciled": round(total_in_r, 2),

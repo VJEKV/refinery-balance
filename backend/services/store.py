@@ -182,6 +182,10 @@ class DataStore:
     def get_all_dates(self) -> List[str]:
         return [d.isoformat() for d in self.dates]
 
+    def get_available_months(self) -> List[int]:
+        """Return sorted list of month numbers (1-12) that have data."""
+        return sorted(set(d.month for d in self.dates))
+
     def filter_dates(self, date_from: Optional[str] = None, date_to: Optional[str] = None,
                      month: Optional[int] = None) -> List[date]:
         """Filter dates by range or month. Returns filtered date list."""

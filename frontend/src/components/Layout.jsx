@@ -9,15 +9,17 @@ export default function Layout() {
     queryFn: () => api.get('/analytics/overview').then(r => r.data),
   })
 
-  const dates = overview?.dates || []
-  const dateRange = dates.length > 0 ? `${dates[0]} — ${dates[dates.length - 1]}` : ''
+  const allDates = overview?.all_dates || overview?.dates || []
+  const dateRange = allDates.length > 0 ? `${allDates[0]} — ${allDates[allDates.length - 1]}` : ''
+  const availableMonths = overview?.available_months || []
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
-        fileCount={dates.length}
+        fileCount={allDates.length}
         unitCount={overview?.units?.length || 0}
         dateRange={dateRange}
+        availableMonths={availableMonths}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-12 border-b border-dark-border bg-dark-card flex items-center justify-between px-6 shrink-0">

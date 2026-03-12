@@ -26,18 +26,26 @@ def overview(
     month: Optional[int] = None,
 ):
     thresholds = _get_thresholds()
-    filtered_dates = store.filter_dates(date_from, date_to, month)
     all_dates = store.dates
+    has_filter = date_from or date_to or (month is not None)
+
+    empty_response = {
+        "total_in": 0, "total_out": 0, "imbalance": 0,
+        "anomaly_count": 0, "downtime_count": 0,
+        "units": [], "dates": [],
+        "available_months": store.get_available_months(),
+    }
 
     if not all_dates:
-        return {
-            "total_in": 0, "total_out": 0, "imbalance": 0,
-            "anomaly_count": 0, "downtime_count": 0,
-            "units": [], "dates": [],
-        }
+        return empty_response
 
-    # Use filtered dates if available, otherwise all
-    target_dates = filtered_dates if filtered_dates else all_dates
+    if has_filter:
+        filtered_dates = store.filter_dates(date_from, date_to, month)
+        if not filtered_dates:
+            return empty_response
+        target_dates = filtered_dates
+    else:
+        target_dates = all_dates
 
     total_in = 0
     total_out = 0
@@ -75,15 +83,18 @@ def overview(
 
         recon_gap = abs(in_m - in_r) / abs(in_m) * 100 if in_m else 0
 
-        # Plan execution: plan_month from DataFrames
+        # Plan execution: plan_month from DataFrames, prorated by number of months
         plan_in = 0.0
         plan_out = 0.0
         inputs_df = data.get("inputs")
         outputs_df = data.get("outputs")
+        # Count unique year-month combinations in the filtered period for this unit
+        target_unit_dates = [unit_dates[i] for i in indices]
+        unique_months = len(set((d.year, d.month) for d in target_unit_dates)) if target_unit_dates else 1
         if inputs_df is not None and "plan_month" in inputs_df.columns:
-            plan_in = float(inputs_df["plan_month"].sum())
+            plan_in = float(inputs_df["plan_month"].sum()) * unique_months
         if outputs_df is not None and "plan_month" in outputs_df.columns:
-            plan_out = float(outputs_df["plan_month"].sum())
+            plan_out = float(outputs_df["plan_month"].sum()) * unique_months
 
         plan_pct_in = round(in_r / plan_in * 100, 2) if plan_in else 0.0
         plan_pct_out = round(out_r / plan_out * 100, 2) if plan_out else 0.0
@@ -160,7 +171,9 @@ def overview(
         "anomaly_count": len(all_anomalies),
         "downtime_count": downtime_count,
         "units": units_overview,
-        "dates": store.get_all_dates(),
+        "dates": [d.isoformat() for d in target_dates],
+        "all_dates": store.get_all_dates(),
+        "available_months": store.get_available_months(),
         "latest_date": all_dates[-1].isoformat() if all_dates else None,
     }
 
@@ -172,8 +185,12 @@ def heatmap(
     month: Optional[int] = None,
 ):
     """Daily consumed/produced for all units — for heatmap visualization."""
-    filtered_dates = store.filter_dates(date_from, date_to, month)
-    target_dates = filtered_dates if filtered_dates else store.dates
+    has_filter = date_from or date_to or (month is not None)
+    if has_filter:
+        filtered_dates = store.filter_dates(date_from, date_to, month)
+        target_dates = filtered_dates if filtered_dates else []
+    else:
+        target_dates = store.dates
     if not target_dates:
         return {"dates": [], "units": []}
 
@@ -223,8 +240,12 @@ def product_heatmap(
         raise HTTPException(400, "direction must be 'inputs' or 'outputs'")
 
     unit_dates = u["dates"]
-    filtered = store.filter_dates(date_from, date_to, month)
-    target_dates = [d for d in (filtered if filtered else unit_dates) if d in unit_dates]
+    has_filter = date_from or date_to or (month is not None)
+    if has_filter:
+        filtered = store.filter_dates(date_from, date_to, month)
+        target_dates = [d for d in filtered if d in unit_dates]
+    else:
+        target_dates = unit_dates
     if not target_dates:
         return {"products": [], "dates": [], "values": []}
 

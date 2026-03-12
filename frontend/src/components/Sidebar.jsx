@@ -49,7 +49,7 @@ const methodConfig = [
   },
 ]
 
-export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }) {
+export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', availableMonths = [] }) {
   const queryClient = useQueryClient()
   const { selectedMonth, selectMonth, selectAll, dateFrom, dateTo, setDateFrom, setDateTo, MONTH_NAMES } = useDateFilter()
 
@@ -165,19 +165,25 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '' }
               >
                 Все месяцы
               </button>
-              {MONTH_NAMES.map((m, i) => (
-                <button
-                  key={i}
-                  onClick={() => { selectMonth(i); setMonthDropdownOpen(false) }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
-                    selectedMonth === i
-                      ? 'bg-accent-blue/15 text-accent-blue'
-                      : 'text-dark-muted hover:text-dark-text hover:bg-white/5'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+              {MONTH_NAMES.map((m, i) => {
+                const hasData = availableMonths.includes(i + 1)
+                return (
+                  <button
+                    key={i}
+                    onClick={() => { if (hasData) { selectMonth(i); setMonthDropdownOpen(false) } }}
+                    disabled={!hasData}
+                    className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
+                      selectedMonth === i
+                        ? 'bg-accent-blue/15 text-accent-blue'
+                        : hasData
+                          ? 'text-dark-muted hover:text-dark-text hover:bg-white/5'
+                          : 'text-dark-muted/30 cursor-not-allowed'
+                    }`}
+                  >
+                    {m}{!hasData && ' (нет данных)'}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
