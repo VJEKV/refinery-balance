@@ -83,21 +83,16 @@ def overview(
 
         recon_gap = abs(in_m - in_r) / abs(in_m) * 100 if in_m else 0
 
-        # Plan execution: plan_month from DataFrames, prorated by number of months
-        plan_in = 0.0
-        plan_out = 0.0
-        inputs_df = data.get("inputs")
-        outputs_df = data.get("outputs")
-        # Count unique year-month combinations in the filtered period for this unit
+        # Plan execution: sum plan_monthly for months in filtered period
         target_unit_dates = [unit_dates[i] for i in indices]
-        unique_months = len(set((d.year, d.month) for d in target_unit_dates)) if target_unit_dates else 1
-        if inputs_df is not None and "plan_month" in inputs_df.columns:
-            plan_in = float(inputs_df["plan_month"].sum()) * unique_months
-        if outputs_df is not None and "plan_month" in outputs_df.columns:
-            plan_out = float(outputs_df["plan_month"].sum()) * unique_months
+        target_months = set(f"{d.year}-{d.month:02d}" for d in target_unit_dates)
+        plan_monthly = unit_info.get("plan_monthly", {})
+        plan_in = sum(plan_monthly.get(m, {}).get("input", 0) for m in target_months)
+        plan_out = sum(plan_monthly.get(m, {}).get("output", 0) for m in target_months)
 
-        plan_pct_in = round(in_r / plan_in * 100, 2) if plan_in else 0.0
-        plan_pct_out = round(out_r / plan_out * 100, 2) if plan_out else 0.0
+        # Fact = measured (измеренное)
+        plan_pct_in = round(in_m / plan_in * 100, 2) if plan_in else 0.0
+        plan_pct_out = round(out_m / plan_out * 100, 2) if plan_out else 0.0
 
         total_in += in_m
         total_out += out_m
@@ -120,7 +115,7 @@ def overview(
         if dt_count > 0:
             downtime_count += dt_count
 
-        is_downtime = (abs(in_m) < ABS_MIN and abs(out_m) < ABS_MIN) or (plan_in == 0 and plan_out == 0 and abs(in_r) < ABS_MIN)
+        is_downtime = (abs(in_m) < ABS_MIN and abs(out_m) < ABS_MIN) or (plan_in == 0 and plan_out == 0 and abs(in_m) < ABS_MIN)
 
         # Status based on plan execution + anomaly severity
         has_critical = any(a["severity"] == "critical" for a in anomalies)
@@ -148,9 +143,9 @@ def overview(
             "downtime_days": dt_count,
             "status": status,
             "plan_input_tons": round(plan_in, 2),
-            "fact_input_tons": round(in_r, 2),
+            "fact_input_tons": round(in_m, 2),
             "plan_output_tons": round(plan_out, 2),
-            "fact_output_tons": round(out_r, 2),
+            "fact_output_tons": round(out_m, 2),
             "plan_pct_input": plan_pct_in,
             "plan_pct_output": plan_pct_out,
             "delta_input_tons": round(in_m - in_r, 2),

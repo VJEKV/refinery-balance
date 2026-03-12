@@ -67,20 +67,32 @@ class DataStore:
         for d in report["dates"]:
             if d not in self.dates:
                 self.dates.append(d)
+        # Determine month key from file dates (each file = 1 month)
+        file_month_key = None
+        if report["dates"]:
+            d0 = report["dates"][0]
+            file_month_key = f"{d0.year}-{d0.month:02d}"
+
         for unit_name, unit_data in report["units"].items():
             code = self._make_code(unit_name)
+
+            # Compute plan totals for this file's month
+            plan_for_month = self._calc_plan_month(unit_data, file_month_key)
+
             if code not in self.units:
                 self.units[code] = {
                     "code": code,
                     "name": unit_name,
                     "data": unit_data,
                     "dates": list(report["dates"]),
+                    "plan_monthly": plan_for_month,
                 }
             else:
                 existing = self.units[code]
                 for d in report["dates"]:
                     if d not in existing["dates"]:
                         existing["dates"].append(d)
+                existing["plan_monthly"].update(plan_for_month)
                 self._merge_unit(existing["data"], unit_data, report["dates"])
 
     def _make_code(self, name: str) -> str:
@@ -88,6 +100,20 @@ class DataStore:
         parts = cleaned.split()
         code = "_".join(parts[:3]).lower()
         return code or name[:20].lower().replace(" ", "_")
+
+    def _calc_plan_month(self, unit_data: Dict, month_key: str) -> Dict:
+        """Calculate plan totals for a single month from parsed unit data."""
+        result = {}
+        if not month_key:
+            return result
+        plan_in = 0.0
+        plan_out = 0.0
+        if unit_data.get("inputs") is not None and "plan_month" in unit_data["inputs"].columns:
+            plan_in = float(unit_data["inputs"]["plan_month"].sum())
+        if unit_data.get("outputs") is not None and "plan_month" in unit_data["outputs"].columns:
+            plan_out = float(unit_data["outputs"]["plan_month"].sum())
+        result[month_key] = {"input": plan_in, "output": plan_out}
+        return result
 
     def _merge_unit(self, existing, new_data, new_dates):
         """Объединение данных установки из нескольких файлов.
