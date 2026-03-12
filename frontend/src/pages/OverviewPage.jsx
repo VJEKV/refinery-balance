@@ -240,7 +240,7 @@ function MethodDetailTable({ method, items, unitName }) {
           Excel
         </button>
       </div>
-      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+      <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-[#080e20]">
             <tr className="border-b border-dark-border text-left text-dark-muted">

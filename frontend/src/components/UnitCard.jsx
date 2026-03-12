@@ -248,25 +248,21 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
                 />
               )}
 
-              {/* Charts — show if no specific method is selected or method needs charts */}
-              {(!effectiveOpenSection || effectiveOpenSection === 'spc') && detail.spc?.dates?.length > 0 && (
+              {/* Charts — always visible */}
+              {detail.spc?.dates?.length > 0 && (
                 <ChartWrapper chartId="control" title="Нетипичные дни (отклонения загрузки)">
                   {(res) => <ControlChart spcData={detail.spc} resolved={res} />}
                 </ChartWrapper>
               )}
-              {(!effectiveOpenSection || effectiveOpenSection === 'recon_gap') && detail.recon_gap?.dates?.length > 0 && (
+              {detail.recon_gap?.dates?.length > 0 && (
                 <ChartWrapper chartId="recon-gap" title="Расхождение измерено / согласовано">
                   {(res) => <ReconGapChart reconData={detail.recon_gap} resolved={res} />}
                 </ChartWrapper>
               )}
-              {/* Products & Heatmaps — always if no method filter */}
-              {!effectiveOpenSection && (
-                <>
-                  <ProductsTable products={detail.products} />
-                  <ReconHeatmap unitCode={unit.code} direction="inputs" title="Расхождение замер/согл — Сырьё (входящие)" dateParams={dateParams} />
-                  <ReconHeatmap unitCode={unit.code} direction="outputs" title="Расхождение замер/согл — Продукция (исходящие)" dateParams={dateParams} />
-                </>
-              )}
+              {/* Products & Heatmaps — always visible */}
+              <ProductsTable products={detail.products} />
+              <ReconHeatmap unitCode={unit.code} direction="inputs" title="Расхождение замер/согл — Сырьё (входящие)" dateParams={dateParams} />
+              <ReconHeatmap unitCode={unit.code} direction="outputs" title="Расхождение замер/согл — Продукция (исходящие)" dateParams={dateParams} />
 
             </>
           ) : (
@@ -312,9 +308,9 @@ function DowntimeSection({ data, unitName }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
         <table className="w-full text-xs">
-          <thead>
+          <thead className="sticky top-0 bg-dark-card">
             <tr className="border-b border-dark-border text-left text-dark-muted">
               <th className="px-2 py-1.5">Начало</th>
               <th className="px-2 py-1.5">Конец</th>
@@ -386,7 +382,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+      <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-dark-card">
             <tr className="border-b border-dark-border text-left text-dark-muted">
