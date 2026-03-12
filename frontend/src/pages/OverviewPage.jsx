@@ -190,38 +190,7 @@ export default function OverviewPage() {
 
                         {/* Level 3: Details table */}
                         {isUnitOpen && (
-                          <div className="bg-[#080e20] px-6 py-3 border-b border-dark-border/30">
-                            <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                              <table className="w-full text-xs">
-                                <thead className="sticky top-0 bg-[#080e20]">
-                                  <tr className="border-b border-dark-border text-left text-dark-muted">
-                                    <th className="px-2 py-1.5">Дата</th>
-                                    <th className="px-2 py-1.5">Описание</th>
-                                    <th className="px-2 py-1.5 text-right">Значение</th>
-                                    <th className="px-2 py-1.5 text-right">Порог</th>
-                                    <th className="px-2 py-1.5">Уровень</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {unitGroup.items.map((a, i) => (
-                                    <tr key={i} className="border-b border-dark-border/20 hover:bg-white/5">
-                                      <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
-                                      <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
-                                      <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>
-                                      <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{a.threshold}</td>
-                                      <td className="px-2 py-1.5">
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                          a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
-                                        }`}>
-                                          {a.severity === 'critical' ? 'Критично' : 'Внимание'}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
+                          <MethodDetailTable method={key} items={unitGroup.items} unitName={unitGroup.name} />
                         )}
                       </div>
                     )
@@ -249,6 +218,101 @@ export default function OverviewPage() {
 
       {/* Heatmap */}
       <HeatmapChart />
+    </div>
+  )
+}
+
+function MethodDetailTable({ method, items, unitName }) {
+  const isBalance = method === 'balance_closure' || method === 'recon_gap'
+  const isSpc = method === 'spc'
+  const label = methodConfig[method]?.label || method
+
+  return (
+    <div className="bg-[#080e20] px-6 py-3 border-b border-dark-border/30">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-dark-muted">{items.length} событий</span>
+        <button
+          onClick={() => exportOverviewExcel(items, method)}
+          className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
+        >
+          <Download size={12} />
+          Excel
+        </button>
+      </div>
+      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-[#080e20]">
+            <tr className="border-b border-dark-border text-left text-dark-muted">
+              <th className="px-2 py-1.5">Дата</th>
+              {isBalance && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Вход изм (т)</th>
+                  <th className="px-2 py-1.5 text-right">Вход согл (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход изм (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход согл (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ (%)</th>
+                </>
+              )}
+              {isSpc && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Загрузка (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выпуск (т)</th>
+                  <th className="px-2 py-1.5 text-right">Среднее (т)</th>
+                  <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
+                </>
+              )}
+              {!isBalance && !isSpc && (
+                <>
+                  <th className="px-2 py-1.5">Описание</th>
+                  <th className="px-2 py-1.5 text-right">Значение</th>
+                  <th className="px-2 py-1.5 text-right">Порог</th>
+                </>
+              )}
+              <th className="px-2 py-1.5">Уровень</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((a, i) => (
+              <tr key={i} className="border-b border-dark-border/20 hover:bg-white/5">
+                <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
+                {isBalance && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+                {isSpc && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
+                  </>
+                )}
+                {!isBalance && !isSpc && (
+                  <>
+                    <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{a.threshold}</td>
+                  </>
+                )}
+                <td className="px-2 py-1.5">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
+                  }`}>
+                    {a.severity === 'critical' ? 'Критично' : 'Внимание'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
