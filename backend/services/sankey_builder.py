@@ -105,34 +105,81 @@ def build_sankey(store, target_date: date, data_type: str = "reconciled") -> Dic
     node_list = list(nodes.values())
     node_ids = [n["id"] for n in node_list]
 
-    indexed_links = []
+    # Aggregate duplicate links between same source->target pair
+    # d3-sankey doesn't handle multiple links between same nodes well
+    agg_links = {}
+    detail_links = []  # keep individual product links for tooltip/losses
     for link in links:
-        if link["source"] in node_ids and link["target"] in node_ids:
-            indexed_links.append({
-                "source": node_ids.index(link["source"]),
-                "target": node_ids.index(link["target"]),
+        if link["source"] not in node_ids or link["target"] not in node_ids:
+            continue
+        src_idx = node_ids.index(link["source"])
+        tgt_idx = node_ids.index(link["target"])
+        key = (src_idx, tgt_idx)
+        out_val = link.get("output_value", link["value"])
+        in_val = link.get("input_value", 0)
+        loss_val = link.get("loss", 0)
+        detail_links.append({
+            "source": src_idx,
+            "target": tgt_idx,
+            "value": link["value"],
+            "product": link["product"],
+            "output_value": out_val,
+            "input_value": in_val,
+            "loss": loss_val,
+            "source_name": nodes[link["source"]]["name"],
+            "target_name": nodes[link["target"]]["name"],
+        })
+        if key not in agg_links:
+            agg_links[key] = {
+                "source": src_idx,
+                "target": tgt_idx,
                 "value": link["value"],
+                "products": [link["product"]],
                 "product": link["product"],
-                "output_value": link.get("output_value", link["value"]),
-                "input_value": link.get("input_value", 0),
-                "loss": link.get("loss", 0),
+                "output_value": out_val,
+                "input_value": in_val,
+                "loss": loss_val,
                 "source_name": nodes[link["source"]]["name"],
                 "target_name": nodes[link["target"]]["name"],
-            })
+            }
+        else:
+            agg = agg_links[key]
+            agg["value"] += link["value"]
+            agg["output_value"] += out_val
+            agg["input_value"] += in_val
+            agg["loss"] += loss_val
+            agg["products"].append(link["product"])
+            agg["product"] = ", ".join(agg["products"][:3])
+            if len(agg["products"]) > 3:
+                agg["product"] += f" (+{len(agg['products']) - 3})"
+
+    indexed_links = []
+    for agg in agg_links.values():
+        indexed_links.append({
+            "source": agg["source"],
+            "target": agg["target"],
+            "value": agg["value"],
+            "product": agg["product"],
+            "output_value": agg["output_value"],
+            "input_value": agg["input_value"],
+            "loss": round(agg["loss"], 2),
+            "source_name": agg["source_name"],
+            "target_name": agg["target_name"],
+            "product_count": len(agg["products"]),
+        })
 
     losses_table = []
-    for link in links:
-        if link.get("loss", 0) != 0 and link["source"] in nodes and link["target"] in nodes:
-            out_val = link.get("output_value", link["value"])
-            in_val = link.get("input_value", 0)
-            loss_val = link.get("loss", 0)
+    for dl in detail_links:
+        loss_val = dl.get("loss", 0)
+        if loss_val != 0:
+            out_val = dl.get("output_value", dl["value"])
             loss_pct = abs(loss_val) / out_val * 100 if out_val > 0 else 0
             losses_table.append({
-                "source": nodes[link["source"]]["name"],
-                "target": nodes[link["target"]]["name"],
-                "product": link["product"],
+                "source": dl["source_name"],
+                "target": dl["target_name"],
+                "product": dl["product"],
                 "output_value": round(out_val, 2),
-                "input_value": round(in_val, 2),
+                "input_value": round(dl.get("input_value", 0), 2),
                 "loss": round(loss_val, 2),
                 "loss_pct": round(loss_pct, 2),
             })

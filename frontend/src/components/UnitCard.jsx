@@ -26,17 +26,17 @@ function exportDowntimeExcel(events, unitName) {
     'Начало': e.start_date,
     'Конец': e.end_date,
     'Дней': e.days,
+    'Часов': e.days * 24,
     'Тип': e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка',
-    'Вход (т)': e.fact_input ?? 0,
-    'Выход (т)': e.fact_output ?? 0,
-    'Норма вход (т)': e.norm_input ?? 0,
-    'Норма выход (т)': e.norm_output ?? 0,
+    'Факт выпуск (т/сут)': e.fact_output ?? 0,
+    'Норма выпуск (т/сут)': e.norm_output ?? 0,
+    'Сокращение выпуска (т)': e.lost_output_tons ?? 0,
     'Загрузка (%)': e.avg_load_pct,
     'Обоснование': e.reason,
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
-    { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 70 },
+    { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 7 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 70 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Простои')
@@ -278,10 +278,18 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
   )
 }
 
+function formatDuration(days) {
+  const hours = days * 24
+  if (days === 1) return '1 дн (24 ч)'
+  return `${days} дн (${hours} ч)`
+}
+
 function DowntimeSection({ data, unitName }) {
   if (!data) return <div className="text-sm text-dark-muted">Загрузка простоев...</div>
   const events = data.events || []
   if (events.length === 0) return <div className="text-sm text-dark-muted">Простоев не обнаружено</div>
+
+  const totalLostOutput = events.reduce((s, e) => s + (e.lost_output_tons ?? 0), 0)
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
@@ -289,6 +297,11 @@ function DowntimeSection({ data, unitName }) {
         <h4 className="text-sm font-semibold text-dark-text flex items-center gap-2">
           <Clock size={15} className="text-accent-yellow" />
           Простои и снижение загрузки ({events.length} событий)
+          {totalLostOutput > 0 && (
+            <span className="text-xs font-normal text-accent-red ml-2">
+              Сокращение выпуска: −{totalLostOutput.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} т
+            </span>
+          )}
         </h4>
         <button
           onClick={() => exportDowntimeExcel(events, unitName)}
@@ -305,39 +318,42 @@ function DowntimeSection({ data, unitName }) {
             <tr className="border-b border-dark-border text-left text-dark-muted">
               <th className="px-2 py-1.5">Начало</th>
               <th className="px-2 py-1.5">Конец</th>
-              <th className="px-2 py-1.5 text-right">Дней</th>
+              <th className="px-2 py-1.5 text-right">Длительность</th>
               <th className="px-2 py-1.5">Тип</th>
-              <th className="px-2 py-1.5 text-right">Вход (т)</th>
-              <th className="px-2 py-1.5 text-right">Выход (т)</th>
-              <th className="px-2 py-1.5 text-right">Норма вход</th>
-              <th className="px-2 py-1.5 text-right">Норма выход</th>
+              <th className="px-2 py-1.5 text-right">Факт выпуск (т/сут)</th>
+              <th className="px-2 py-1.5 text-right">Норма выпуск (т/сут)</th>
+              <th className="px-2 py-1.5 text-right">Сокращение выпуска (т)</th>
               <th className="px-2 py-1.5 text-right">% загрузки</th>
               <th className="px-2 py-1.5">Обоснование</th>
             </tr>
           </thead>
           <tbody>
-            {events.map((e, i) => (
-              <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
-                <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.start_date}</td>
-                <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.end_date}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-dark-text">{e.days}</td>
-                <td className="px-2 py-1.5">
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                    e.type === 'stop' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
-                  }`}>
-                    {e.type === 'stop' ? 'Остановка' : 'Снижение'}
-                  </span>
-                </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_input ?? 0).toLocaleString('ru-RU')} т</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_output ?? 0).toLocaleString('ru-RU')} т</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_input ?? 0).toLocaleString('ru-RU')} т</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_output ?? 0).toLocaleString('ru-RU')} т</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">
-                  <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
-                </td>
-                <td className="px-2 py-1.5 text-dark-muted max-w-xs">{e.reason}</td>
-              </tr>
-            ))}
+            {events.map((e, i) => {
+              const lostOut = e.lost_output_tons ?? 0
+              return (
+                <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
+                  <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.start_date}</td>
+                  <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.end_date}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-dark-text whitespace-nowrap">{formatDuration(e.days)}</td>
+                  <td className="px-2 py-1.5">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      e.type === 'stop' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
+                    }`}>
+                      {e.type === 'stop' ? 'Остановка' : 'Снижение'}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-accent-red">
+                    {lostOut > 0 ? `−${lostOut.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}` : '0'}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
+                  </td>
+                  <td className="px-2 py-1.5 text-dark-muted max-w-xs">{e.reason}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -349,7 +365,8 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
   const meta = methodMeta[method]
   if (!meta || !anomalies || anomalies.length === 0) return null
   const Icon = meta.icon
-  const isBalance = method === 'balance_closure' || method === 'recon_gap'
+  const isBalanceClosure = method === 'balance_closure'
+  const isReconGap = method === 'recon_gap'
   const isSpc = method === 'spc'
 
   return (
@@ -373,14 +390,20 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
           <thead className="sticky top-0 bg-dark-card">
             <tr className="border-b border-dark-border text-left text-dark-muted">
               <th className="px-2 py-1.5">Дата</th>
-              {isBalance && (
+              {isBalanceClosure && (
                 <>
-                  <th className="px-2 py-1.5 text-right">Вход изм (т)</th>
-                  <th className="px-2 py-1.5 text-right">Вход согл (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выход изм (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выход согл (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ (% от изм)</th>
+                  <th className="px-2 py-1.5 text-right">Вход замер (т)</th>
+                  <th className="px-2 py-1.5 text-right">Выход замер (т)</th>
+                  <th className="px-2 py-1.5 text-right">Небаланс (т)</th>
+                  <th className="px-2 py-1.5 text-right">Небаланс (%)</th>
+                </>
+              )}
+              {isReconGap && (
+                <>
+                  <th className="px-2 py-1.5 text-right">Замер сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Согласов сырьё (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ замер−согл (т)</th>
+                  <th className="px-2 py-1.5 text-right">Δ замер−согл (%)</th>
                 </>
               )}
               {isSpc && (
@@ -391,7 +414,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                   <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
                 </>
               )}
-              {!isBalance && !isSpc && (
+              {!isBalanceClosure && !isReconGap && !isSpc && (
                 <>
                   <th className="px-2 py-1.5">Описание</th>
                   <th className="px-2 py-1.5 text-right">Значение</th>
@@ -405,14 +428,20 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
             {anomalies.map((a, i) => (
               <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
                 <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
-                {isBalance && (
+                {isBalanceClosure && (
                   <>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+                {isReconGap && (
+                  <>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
                   </>
                 )}
                 {isSpc && (
@@ -423,7 +452,7 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
                     <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
                   </>
                 )}
-                {!isBalance && !isSpc && (
+                {!isBalanceClosure && !isReconGap && !isSpc && (
                   <>
                     <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>

@@ -66,8 +66,9 @@ export default function SankeyDiagram({ sankeyData, resolved }) {
       const midX = (link.source.x1 + link.target.x0) / 2
       const midY = (link.y0 + link.y1) / 2
       const labelText = `${link.product}: ${link.value.toFixed(1)} т`
-      if (w > 4) {
-        svgContent += `<text x="${midX}" y="${midY}" dy="0.35em" text-anchor="middle" fill="${cMuted}" font-size="${axisSize - 2}" font-family="${fontFamily}" pointer-events="none">${labelText.length > 35 ? labelText.slice(0, 33) + '...' : labelText}</text>`
+      const truncLabel = labelText.length > 40 ? labelText.slice(0, 38) + '...' : labelText
+      if (w > 2) {
+        svgContent += `<text x="${midX}" y="${midY}" dy="0.35em" text-anchor="middle" fill="${cMuted}" font-size="${w > 6 ? axisSize - 1 : axisSize - 2}" font-family="${fontFamily}" pointer-events="none" opacity="${w > 4 ? 1 : 0.7}">${truncLabel}</text>`
       }
     })
 
@@ -106,11 +107,13 @@ export default function SankeyDiagram({ sankeyData, resolved }) {
           x: e.clientX,
           y: e.clientY,
           product: link.product,
+          productCount: link.product_count || 1,
           sourceName: link.source_name || link.source?.name || '',
           targetName: link.target_name || link.target?.name || '',
           value: link.output_value || link.value,
           inputValue: link.input_value || 0,
           loss: link.loss || 0,
+          totalValue: link.value,
         })
       })
       el.addEventListener('mouseleave', () => {
@@ -147,8 +150,12 @@ export default function SankeyDiagram({ sankeyData, resolved }) {
           }}
         >
           <div className="font-semibold mb-1" style={{ color: colors?.tooltip?.text || '#1e293b' }}>{tooltip.product}</div>
+          {tooltip.productCount > 1 && (
+            <div style={{ color: colors?.tooltip?.muted || '#64748b', fontSize: '10px' }}>({tooltip.productCount} продуктов)</div>
+          )}
           <div style={{ color: colors?.tooltip?.muted || '#64748b' }}>{tooltip.sourceName} → {tooltip.targetName}</div>
-          <div className="mt-1" style={{ color: colors?.tooltip?.text || '#1e293b' }}>Выход: {tooltip.value.toFixed(1)} т</div>
+          <div className="mt-1" style={{ color: colors?.tooltip?.text || '#1e293b' }}>Всего: {tooltip.totalValue.toFixed(1)} т</div>
+          <div style={{ color: colors?.tooltip?.text || '#1e293b' }}>Выход: {tooltip.value.toFixed(1)} т</div>
           {tooltip.inputValue > 0 && (
             <div style={{ color: colors?.tooltip?.text || '#1e293b' }}>Вход: {tooltip.inputValue.toFixed(1)} т</div>
           )}
