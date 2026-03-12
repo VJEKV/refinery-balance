@@ -57,6 +57,9 @@ def get_unit(
     elif has_filter and not dates:
         anomalies = []
 
+    # Target dates for all filtered computations
+    target_dates = dates if dates else all_unit_dates
+
     # SPC/ReconGap — compute on filtered data for correct chart display
     series = store.get_unit_series(code)
     filtered_data = store.extract_filtered_data(data, all_unit_dates, target_dates)
@@ -64,7 +67,6 @@ def get_unit(
     recon_data = get_recon_gap_data(filtered_data, target_dates)
 
     # Products with totals over filtered period
-    target_dates = dates if dates else all_unit_dates
     products = {"inputs": [], "outputs": []}
     if target_dates:
         for direction in ("inputs", "outputs"):
