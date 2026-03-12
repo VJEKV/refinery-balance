@@ -26,8 +26,9 @@ export default function Layout() {
           <h1 className="text-sm font-semibold text-dark-text">
             Материальный Баланс НПЗ
           </h1>
-          <div className="text-xs text-dark-muted">
-            {overview?.latest_date || '—'}
+          <div className="flex items-center gap-4 text-xs text-dark-muted">
+            <span>{overview?.latest_date || '—'}</span>
+            <span className="text-dark-muted/50">v{__APP_VERSION__} ({__BUILD_DATE__})</span>
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6 bg-dark-bg">
