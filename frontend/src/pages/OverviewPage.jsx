@@ -434,10 +434,11 @@ function MethodDetailTable({ method, items, unitName }) {
                     <th className={`${thCls} text-right`}>Замер сырьё (т)</th>
                     <th className={`${thCls} text-right`}>Согласов сырьё (т)</th>
                     <th className={`${thCls} text-right`}>Δ сырьё (т)</th>
+                    <th className={`${thCls} text-right`}>Δ сырьё (%)</th>
                     <th className={`${thCls} text-right`}>Замер продукц (т)</th>
                     <th className={`${thCls} text-right`}>Согласов продукц (т)</th>
                     <th className={`${thCls} text-right`}>Δ продукц (т)</th>
-                    <th className={`${thCls} text-right`}>Δ%</th>
+                    <th className={`${thCls} text-right`}>Δ продукц (%)</th>
                   </>
                 )}
                 {isSpc && (
@@ -485,11 +486,12 @@ function MethodDetailTable({ method, items, unitName }) {
                     <>
                       <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                       <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_tons ?? Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_pct ?? 0).toFixed(2)}%</td>
                       <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                       <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_tons ?? Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                      <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_pct ?? 0).toFixed(2)}%</td>
                     </>
                   )}
                   {isSpc && (

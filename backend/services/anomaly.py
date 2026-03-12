@@ -69,23 +69,29 @@ def recon_gap(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict
         if m == 0:
             continue
         gap = abs(m - r) / abs(m) * 100
-        if gap > threshold:
-            severity = "critical" if gap > threshold * 2 else "warn"
-            p_m = produced_m[i] if i < len(produced_m) else 0
-            p_r = produced_r[i] if i < len(produced_r) else 0
+        p_m = produced_m[i] if i < len(produced_m) else 0
+        p_r = produced_r[i] if i < len(produced_r) else 0
+        gap_out = abs(p_m - p_r) / abs(p_m) * 100 if p_m != 0 else 0
+        max_gap = max(gap, gap_out)
+        if max_gap > threshold:
+            severity = "critical" if max_gap > threshold * 2 else "warn"
             results.append({
                 "date": d.isoformat(),
                 "method": "recon_gap",
-                "description": f"Расхождение измерено/согласовано: {gap:.2f}% от измеренного (допустимо {threshold}%)",
-                "value": round(gap, 2),
+                "description": f"Расхождение измерено/согласовано: сырьё {gap:.2f}%, продукция {gap_out:.2f}% (допустимо {threshold}%)",
+                "value": round(max_gap, 2),
                 "threshold": threshold,
                 "severity": severity,
                 "input_measured": round(m, 2),
                 "input_reconciled": round(r, 2),
                 "output_measured": round(p_m, 2),
                 "output_reconciled": round(p_r, 2),
+                "delta_input_tons": round(abs(m - r), 2),
+                "delta_input_pct": round(gap, 2),
+                "delta_output_tons": round(abs(p_m - p_r), 2),
+                "delta_output_pct": round(gap_out, 2),
                 "delta_tons": round(abs(m - r), 2),
-                "delta_pct": round(gap, 2),
+                "delta_pct": round(max_gap, 2),
             })
     return results
 
