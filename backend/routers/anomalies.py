@@ -108,6 +108,9 @@ def downtime_details(
     if unit:
         units_to_process = [(k, v) for k, v in units_to_process if k == unit]
 
+    downtime_pct = thresholds.get("downtime_pct", 10.0)
+    ABS_MIN = 1.0
+
     for code, unit_info in units_to_process:
         data = unit_info["data"]
         unit_dates = unit_info["dates"]
@@ -116,9 +119,9 @@ def downtime_details(
 
         # Средняя выработка за рабочие дни
         working_consumed = [consumed[i] for i, d in enumerate(unit_dates)
-                           if i < len(consumed) and consumed[i] >= 1.0]
+                           if i < len(consumed) and consumed[i] >= ABS_MIN]
         working_produced = [produced[i] for i, d in enumerate(unit_dates)
-                           if i < len(produced) and produced[i] >= 1.0]
+                           if i < len(produced) and produced[i] >= ABS_MIN]
         avg_consumed = float(np.mean(working_consumed)) if working_consumed else 0
         avg_produced = float(np.mean(working_produced)) if working_produced else 0
 
@@ -131,8 +134,8 @@ def downtime_details(
             c = consumed[i]
             p = produced[i] if i < len(produced) else 0
 
-            is_full_stop = c < 1.0 and p < 1.0
-            is_low = not is_full_stop and avg_consumed > 0 and c < avg_consumed * 0.5
+            is_full_stop = c < ABS_MIN and p < ABS_MIN
+            is_low = not is_full_stop and avg_consumed > 0 and c < avg_consumed * downtime_pct / 100
 
             if is_full_stop or is_low:
                 load_pct = round(c / avg_consumed * 100, 1) if avg_consumed > 0 else 0
@@ -170,6 +173,9 @@ def downtime_details(
             else:
                 reason = f"Сниженная загрузка ({avg_load:.0f}% от нормы): среднее поступление {sum(e['consumed'] for e in group)/days_count:.0f} т/день вместо {avg_consumed:.0f} т/день"
 
+            avg_event_consumed = sum(e["consumed"] for e in group) / days_count
+            avg_event_produced = sum(e["produced"] for e in group) / days_count
+
             all_day_events.append({
                 "unit": code,
                 "unit_name": unit_info["name"],
@@ -178,11 +184,13 @@ def downtime_details(
                 "days": days_count,
                 "type": event_type,
                 "avg_load_pct": round(avg_load, 1),
+                "fact_input": round(avg_event_consumed, 1),
+                "fact_output": round(avg_event_produced, 1),
+                "norm_input": round(avg_consumed, 1),
+                "norm_output": round(avg_produced, 1),
                 "lost_input_tons": round(total_lost_input, 1),
                 "lost_output_tons": round(total_lost_output, 1),
                 "reason": reason,
-                "avg_consumed": round(avg_consumed, 1),
-                "avg_produced": round(avg_produced, 1),
             })
 
         # Статистика по установке

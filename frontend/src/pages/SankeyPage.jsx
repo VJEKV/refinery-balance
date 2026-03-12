@@ -30,10 +30,19 @@ export default function SankeyPage() {
     return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
   }
 
+  const sankeyUrl = (() => {
+    if (!activeDate) return null
+    if (period === 'monthly') {
+      const d = new Date(activeDate)
+      return `/sankey/monthly?year=${d.getFullYear()}&month=${d.getMonth() + 1}&type=${dataType}`
+    }
+    return `/sankey?date=${activeDate}&type=${dataType}`
+  })()
+
   const { data: sankeyData, isLoading } = useQuery({
-    queryKey: ['sankey', activeDate, dataType],
-    queryFn: () => api.get(`/sankey?date=${activeDate}&type=${dataType}`).then(r => r.data),
-    enabled: !!activeDate,
+    queryKey: ['sankey', activeDate, dataType, period],
+    queryFn: () => api.get(sankeyUrl).then(r => r.data),
+    enabled: !!sankeyUrl,
   })
 
   return (

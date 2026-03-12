@@ -8,6 +8,7 @@ from services import aggregator
 from config import DEFAULT_THRESHOLDS, THRESHOLDS_FILE
 import json
 import os
+import numpy as np
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -104,13 +105,19 @@ def overview(
         anomalies = [a for a in anomalies if a["date"] in target_date_strs]
         all_anomalies.extend([{**a, "unit": code, "unit_name": unit_info["name"]} for a in anomalies])
 
-        # Downtime: count days with near-zero input+output (< 1 ton each)
+        # Downtime: count days using threshold from settings
         ABS_MIN = 1.0
+        downtime_pct = thresholds.get("downtime_pct", 10.0)
+        # Average consumed for this unit (non-zero days)
+        significant_consumed = [consumed_m[i] for i in indices if i < len(consumed_m) and consumed_m[i] >= ABS_MIN]
+        mu_consumed = float(np.mean(significant_consumed)) if significant_consumed else 0
         dt_count = 0
         for i in indices:
             c = abs(consumed_m[i]) if i < len(consumed_m) else 0
             p = abs(produced_m[i]) if i < len(produced_m) else 0
-            if c < ABS_MIN and p < ABS_MIN:
+            is_full_stop = c < ABS_MIN and p < ABS_MIN
+            is_low = not is_full_stop and mu_consumed > 0 and c < mu_consumed * downtime_pct / 100
+            if is_full_stop or is_low:
                 dt_count += 1
         if dt_count > 0:
             downtime_count += dt_count

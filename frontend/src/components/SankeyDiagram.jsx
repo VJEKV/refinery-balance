@@ -108,7 +108,7 @@ export default function SankeyDiagram({ sankeyData, resolved }) {
           product: link.product,
           sourceName: link.source_name || link.source?.name || '',
           targetName: link.target_name || link.target?.name || '',
-          value: link.value,
+          value: link.output_value || link.value,
           inputValue: link.input_value || 0,
           loss: link.loss || 0,
         })

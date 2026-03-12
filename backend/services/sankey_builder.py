@@ -57,13 +57,17 @@ def build_sankey(store, target_date: date, data_type: str = "reconciled") -> Dic
                 for in_entry in all_inputs[product]:
                     if out_entry["unit"] == in_entry["unit"]:
                         continue
+                    out_val = out_entry["value"]
+                    in_val = in_entry["value"]
+                    link_value = max(out_val, in_val)  # display the larger value for flow width
                     links.append({
                         "source": out_entry["unit"],
                         "target": in_entry["unit"],
-                        "value": out_entry["value"],
+                        "value": link_value,
                         "product": product,
-                        "input_value": in_entry["value"],
-                        "loss": round(out_entry["value"] - in_entry["value"], 2),
+                        "output_value": out_val,
+                        "input_value": in_val,
+                        "loss": round(out_val - in_val, 2),
                     })
                     matched_outputs.add((product, out_entry["unit"]))
                     matched_inputs.add((product, in_entry["unit"]))
@@ -109,6 +113,7 @@ def build_sankey(store, target_date: date, data_type: str = "reconciled") -> Dic
                 "target": node_ids.index(link["target"]),
                 "value": link["value"],
                 "product": link["product"],
+                "output_value": link.get("output_value", link["value"]),
                 "input_value": link.get("input_value", 0),
                 "loss": link.get("loss", 0),
                 "source_name": nodes[link["source"]]["name"],
@@ -118,7 +123,7 @@ def build_sankey(store, target_date: date, data_type: str = "reconciled") -> Dic
     losses_table = []
     for link in links:
         if link.get("loss", 0) != 0 and link["source"] in nodes and link["target"] in nodes:
-            out_val = link["value"]
+            out_val = link.get("output_value", link["value"])
             in_val = link.get("input_value", 0)
             loss_val = link.get("loss", 0)
             loss_pct = abs(loss_val) / out_val * 100 if out_val > 0 else 0

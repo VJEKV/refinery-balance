@@ -27,14 +27,16 @@ function exportDowntimeExcel(events, unitName) {
     'Конец': e.end_date,
     'Дней': e.days,
     'Тип': e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка',
-    'Загрузка (% от нормы)': e.avg_load_pct,
-    'Потери сырья (т)': e.lost_input_tons,
-    'Потери продукции (т)': e.lost_output_tons,
+    'Вход (т)': e.fact_input ?? 0,
+    'Выход (т)': e.fact_output ?? 0,
+    'Норма вход (т)': e.norm_input ?? 0,
+    'Норма выход (т)': e.norm_output ?? 0,
+    'Загрузка (%)': e.avg_load_pct,
     'Обоснование': e.reason,
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
-    { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 70 },
+    { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 70 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Простои')
@@ -162,11 +164,11 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
             return (
               <>
                 <div className="flex justify-between" style={{ color: colorIn }}>
-                  <span>Δ Сырьё:</span>
+                  <span>Δ Сырьё (замер−согл):</span>
                   <span className="tabular-nums font-medium">{sign(di)}{fmt(di)} т ({sign(dip)}{Math.abs(dip).toFixed(2)}%)</span>
                 </div>
                 <div className="flex justify-between" style={{ color: colorOut }}>
-                  <span>Δ Продукция:</span>
+                  <span>Δ Продукция (замер−согл):</span>
                   <span className="tabular-nums font-medium">{sign(do_)}{fmt(do_)} т ({sign(dop)}{Math.abs(dop).toFixed(2)}%)</span>
                 </div>
               </>
@@ -266,26 +268,6 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
                 </>
               )}
 
-              {/* Full anomaly list — if no specific method selected */}
-              {!effectiveOpenSection && unitAnomalies.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium text-dark-muted mb-2">
-                    Все аномалии ({unitAnomalies.length})
-                  </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {unitAnomalies.slice(0, 20).map((a, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs py-0.5">
-                        <span className={`shrink-0 mt-0.5 w-2 h-2 rounded-full ${a.severity === 'critical' ? 'bg-accent-red' : 'bg-accent-yellow'}`} />
-                        <span className="text-dark-muted shrink-0">{a.date?.slice(5)}</span>
-                        <span className="text-dark-text">{a.description}</span>
-                      </div>
-                    ))}
-                    {unitAnomalies.length > 20 && (
-                      <div className="text-xs text-dark-muted">...и ещё {unitAnomalies.length - 20}</div>
-                    )}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <div className="text-xs text-dark-muted py-1">Данные не найдены</div>
@@ -325,9 +307,11 @@ function DowntimeSection({ data, unitName }) {
               <th className="px-2 py-1.5">Конец</th>
               <th className="px-2 py-1.5 text-right">Дней</th>
               <th className="px-2 py-1.5">Тип</th>
-              <th className="px-2 py-1.5 text-right">% от нормы</th>
-              <th className="px-2 py-1.5 text-right">Потери сырья</th>
-              <th className="px-2 py-1.5 text-right">Потери продукции</th>
+              <th className="px-2 py-1.5 text-right">Вход (т)</th>
+              <th className="px-2 py-1.5 text-right">Выход (т)</th>
+              <th className="px-2 py-1.5 text-right">Норма вход</th>
+              <th className="px-2 py-1.5 text-right">Норма выход</th>
+              <th className="px-2 py-1.5 text-right">% загрузки</th>
               <th className="px-2 py-1.5">Обоснование</th>
             </tr>
           </thead>
@@ -344,11 +328,13 @@ function DowntimeSection({ data, unitName }) {
                     {e.type === 'stop' ? 'Остановка' : 'Снижение'}
                   </span>
                 </td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_input ?? 0).toLocaleString('ru-RU')} т</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_output ?? 0).toLocaleString('ru-RU')} т</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_input ?? 0).toLocaleString('ru-RU')} т</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_output ?? 0).toLocaleString('ru-RU')} т</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">
                   <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
                 </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{e.lost_input_tons.toLocaleString('ru-RU')} т</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{e.lost_output_tons.toLocaleString('ru-RU')} т</td>
                 <td className="px-2 py-1.5 text-dark-muted max-w-xs">{e.reason}</td>
               </tr>
             ))}
