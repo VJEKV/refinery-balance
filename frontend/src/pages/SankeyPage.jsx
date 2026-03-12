@@ -106,7 +106,7 @@ export default function SankeyPage() {
       {sankeyData?.losses && sankeyData.losses.length > 0 && (
         <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-dark-border">
-            <h2 className="text-sm font-semibold text-dark-text">Потери на трассах</h2>
+            <h2 className="text-sm font-semibold text-dark-text">Потери продукции между установками</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

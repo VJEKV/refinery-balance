@@ -6,7 +6,7 @@ export default function ControlChart({ spcData, resolved }) {
   const [showHelp, setShowHelp] = useState(false)
 
   if (!spcData || !spcData.dates || spcData.dates.length === 0) {
-    return <div className="text-dark-muted text-sm p-4">Нет данных для SPC</div>
+    return <div className="text-dark-muted text-sm p-4">Нет данных для анализа нетипичных дней</div>
   }
 
   const { colors, fontFamily, fontSize } = resolved

@@ -6,6 +6,7 @@ import UnitDetailPage from './pages/UnitDetailPage'
 import AnomaliesPage from './pages/AnomaliesPage'
 import SankeyPage from './pages/SankeyPage'
 import UploadPage from './pages/UploadPage'
+import HelpPage from './pages/HelpPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="anomalies" element={<AnomaliesPage />} />
             <Route path="sankey" element={<SankeyPage />} />
             <Route path="upload" element={<UploadPage />} />
+            <Route path="help" element={<HelpPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

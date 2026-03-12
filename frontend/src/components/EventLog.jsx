@@ -1,12 +1,12 @@
 import StatusBadge from './StatusBadge'
 
 const methodLabels = {
-  balance_closure: 'Потери и утечки',
-  recon_gap: 'Прибор/Согласов.',
-  spc: 'SPC',
-  cusum: 'CUSUM',
+  balance_closure: 'Небаланс вход/выход',
+  recon_gap: 'Расхождение измерено/согласовано',
+  spc: 'Нетипичные дни',
+  cusum: 'Скрытый тренд',
   downtime: 'Простой',
-  cross_unit: 'Межцеховой',
+  cross_unit: 'Потери продукции между установками',
 }
 
 export default function EventLog({ anomalies = [] }) {

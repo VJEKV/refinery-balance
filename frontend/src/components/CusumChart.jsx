@@ -6,7 +6,7 @@ export default function CusumChart({ cusumData, resolved }) {
   const [showHelp, setShowHelp] = useState(false)
 
   if (!cusumData || !cusumData.dates || cusumData.dates.length === 0) {
-    return <div className="text-dark-muted text-sm p-4">Нет данных для CUSUM</div>
+    return <div className="text-dark-muted text-sm p-4">Нет данных для анализа скрытого тренда</div>
   }
 
   const { colors, fontFamily, fontSize } = resolved

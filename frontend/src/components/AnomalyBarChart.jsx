@@ -2,12 +2,12 @@ import { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 
 const METHOD_LABELS = {
-  balance_closure: 'Потери МБ',
-  recon_gap: 'Дрейф датчиков',
-  spc: 'SPC выбросы',
-  cusum: 'CUSUM дрейф',
+  balance_closure: 'Небаланс вход/выход',
+  recon_gap: 'Расхождение измерено/согласовано',
+  spc: 'Нетипичные дни',
+  cusum: 'Скрытый тренд',
   downtime: 'Простой',
-  cross_unit: 'Межцеховые',
+  cross_unit: 'Потери продукции между установками',
 }
 
 const METHOD_COLORS = {

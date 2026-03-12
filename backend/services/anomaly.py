@@ -57,7 +57,7 @@ def recon_gap(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict
             results.append({
                 "date": d.isoformat(),
                 "method": "recon_gap",
-                "description": f"Расхождение замер/отчёт: {gap:.2f}% (допустимо {threshold}%)",
+                "description": f"Расхождение измерено/согласовано: {gap:.2f}% (допустимо {threshold}%)",
                 "value": round(gap, 2),
                 "threshold": threshold,
                 "severity": severity,
@@ -85,7 +85,7 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
             results.append({
                 "date": d.isoformat(),
                 "method": "spc",
-                "description": f"Выход за норму: отклонение {deviation:.2f}σ от среднего (допустимо {spc_sigma}σ)",
+                "description": f"Нетипичный день: отклонение {deviation:.2f}σ от среднего (допустимо {spc_sigma}σ)",
                 "value": round(deviation, 2),
                 "threshold": spc_sigma,
                 "severity": "critical",
@@ -127,7 +127,7 @@ def cusum(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
             results.append({
                 "date": d.isoformat(),
                 "method": "cusum",
-                "description": f"Устойчивый сдвиг процесса: накопл. отклонение S+={s_plus:.1f}, S-={s_minus:.1f} (порог {H:.1f})",
+                "description": f"Скрытый тренд: накопленное отклонение S+={s_plus:.1f}, S-={s_minus:.1f} (порог {H:.1f})",
                 "value": round(max(s_plus, s_minus), 2),
                 "threshold": round(H, 2),
                 "severity": "critical",

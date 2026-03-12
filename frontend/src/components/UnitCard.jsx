@@ -13,12 +13,12 @@ import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
 
 const methodMeta = {
-  balance_closure: { label: 'Потери и утечки', icon: AlertTriangle, color: 'text-accent-red' },
-  recon_gap: { label: 'Расхождение замер/отчёт', icon: BarChart3, color: 'text-accent-yellow' },
-  spc: { label: 'Выход за норму', icon: Activity, color: 'text-accent-blue' },
-  cusum: { label: 'Устойчивый сдвиг', icon: TrendingUp, color: 'text-accent-purple' },
+  balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
+  recon_gap: { label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow' },
+  spc: { label: 'Нетипичные дни', icon: Activity, color: 'text-accent-blue' },
+  cusum: { label: 'Скрытый тренд', icon: TrendingUp, color: 'text-accent-purple' },
   downtime: { label: 'Простой', icon: Clock, color: 'text-dark-muted' },
-  cross_unit: { label: 'Между установками', icon: GitBranch, color: 'text-accent-green' },
+  cross_unit: { label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green' },
 }
 
 function exportDowntimeExcel(events, unitName) {
@@ -234,17 +234,17 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
 
               {/* Charts — show if no specific method is selected or method needs charts */}
               {(!effectiveOpenSection || effectiveOpenSection === 'spc') && detail.spc?.dates?.length > 0 && (
-                <ChartWrapper chartId="control" title="Контрольная карта (выход за норму)">
+                <ChartWrapper chartId="control" title="Нетипичные дни (отклонения загрузки)">
                   {(res) => <ControlChart spcData={detail.spc} resolved={res} />}
                 </ChartWrapper>
               )}
               {(!effectiveOpenSection || effectiveOpenSection === 'recon_gap') && detail.recon_gap?.dates?.length > 0 && (
-                <ChartWrapper chartId="recon-gap" title="Расхождение замер / отчёт (суммарное)">
+                <ChartWrapper chartId="recon-gap" title="Расхождение измерено / согласовано">
                   {(res) => <ReconGapChart reconData={detail.recon_gap} resolved={res} />}
                 </ChartWrapper>
               )}
               {(!effectiveOpenSection || effectiveOpenSection === 'cusum') && detail.cusum?.dates?.length > 0 && (
-                <ChartWrapper chartId="cusum" title="Устойчивый сдвиг (CUSUM)">
+                <ChartWrapper chartId="cusum" title="Скрытый тренд">
                   {(res) => <CusumChart cusumData={detail.cusum} resolved={res} />}
                 </ChartWrapper>
               )}
