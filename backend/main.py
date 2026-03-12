@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="НПЗ Материальный Баланс",
     description="Аналитика аномалий нефтеперерабатывающего завода",
-    version="1.2.1",
+    version="1.2.2",
     lifespan=lifespan,
 )
 
@@ -39,12 +39,30 @@ app.include_router(settings.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "НПЗ Материальный Баланс"}
+    return {"status": "ok", "app": "НПЗ Материальный Баланс", "version": "1.2.2"}
 
 
 # Production: раздача собранного React из frontend/dist
 import os
 import sys
+from fastapi.responses import FileResponse, HTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+
+class NoCacheHTMLMiddleware(BaseHTTPMiddleware):
+    """Запрещает кэширование index.html — браузер всегда получает свежую версию."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        ct = response.headers.get("content-type", "")
+        if "text/html" in ct:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+
+app.add_middleware(NoCacheHTMLMiddleware)
+
 
 def _get_dist_dir():
     if getattr(sys, 'frozen', False):
