@@ -20,6 +20,10 @@ const methodMeta = {
   cross_unit: { label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green' },
 }
 
+/* ---- cell border classes ---- */
+const thCls = 'px-2 py-1.5 border border-dark-border/40'
+const tdCls = 'px-2 py-1.5 border border-dark-border/20'
+
 function exportDowntimeExcel(events, unitName) {
   if (!events || events.length === 0) return
   const rows = events.map(e => ({
@@ -77,7 +81,7 @@ function exportAnomaliesExcel(anomalies, unitName, methodLabel) {
 
 export default function UnitCard({ unit, anomalies = [], activeMethod = null }) {
   const [expanded, setExpanded] = useState(false)
-  const [openSection, setOpenSection] = useState(null) // which method accordion is open
+  const [openSection, setOpenSection] = useState(null)
   const navigate = useNavigate()
   const { dateParams } = useDateFilter()
 
@@ -98,7 +102,6 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
     [anomalies, unit.code, unit.name]
   )
 
-  // Group anomalies by method
   const anomaliesByMethod = useMemo(() => {
     const groups = {}
     unitAnomalies.forEach(a => {
@@ -108,14 +111,11 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
     return groups
   }, [unitAnomalies])
 
-  // If activeMethod is set, check if this unit has related anomalies
   const hasActiveMethodAnomalies = activeMethod ? (anomaliesByMethod[activeMethod]?.length > 0) : true
-  // Auto-open section when activeMethod changes
   const effectiveOpenSection = activeMethod && hasActiveMethodAnomalies ? activeMethod : openSection
 
   const fmt = (v) => Math.abs(v).toLocaleString('ru-RU', { maximumFractionDigits: 0 })
 
-  // Don't render card if activeMethod is set and this unit has no matching anomalies
   if (activeMethod && !hasActiveMethodAnomalies) return null
 
   const toggleSection = (method) => {
@@ -176,7 +176,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
           })()}
         </div>
 
-        {/* Anomaly method badges — clickable */}
+        {/* Anomaly method badges */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
           {Object.entries(anomaliesByMethod).map(([method, items]) => {
             const meta = methodMeta[method]
@@ -311,42 +311,42 @@ function DowntimeSection({ data, unitName }) {
       <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-dark-card">
-            <tr className="border-b border-dark-border text-left text-dark-muted">
-              <th className="px-2 py-1.5">Начало</th>
-              <th className="px-2 py-1.5">Конец</th>
-              <th className="px-2 py-1.5 text-right">Длительность</th>
-              <th className="px-2 py-1.5">Тип</th>
-              <th className="px-2 py-1.5 text-right">Факт выпуск (т/сут)</th>
-              <th className="px-2 py-1.5 text-right">Норма выпуск (т/сут)</th>
-              <th className="px-2 py-1.5 text-right">Сокращение выпуска (т)</th>
-              <th className="px-2 py-1.5 text-right">% загрузки</th>
-              <th className="px-2 py-1.5">Обоснование</th>
+            <tr className="text-left text-dark-muted">
+              <th className={thCls}>Начало</th>
+              <th className={thCls}>Конец</th>
+              <th className={`${thCls} text-right`}>Длительность</th>
+              <th className={thCls}>Тип</th>
+              <th className={`${thCls} text-right`}>Факт выпуск (т/сут)</th>
+              <th className={`${thCls} text-right`}>Норма выпуск (т/сут)</th>
+              <th className={`${thCls} text-right`}>Сокращение выпуска (т)</th>
+              <th className={`${thCls} text-right`}>% загрузки</th>
+              <th className={thCls}>Обоснование</th>
             </tr>
           </thead>
           <tbody>
             {events.map((e, i) => {
               const lostOut = e.lost_output_tons ?? 0
               return (
-                <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
-                  <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.start_date}</td>
-                  <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{e.end_date}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-dark-text whitespace-nowrap">{formatDuration(e.days)}</td>
-                  <td className="px-2 py-1.5">
+                <tr key={i} className="hover:bg-white/5">
+                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.start_date}</td>
+                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.end_date}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-semibold text-dark-text whitespace-nowrap`}>{formatDuration(e.days)}</td>
+                  <td className={tdCls}>
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       e.type === 'stop' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                     }`}>
                       {e.type === 'stop' ? 'Остановка' : 'Снижение'}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-accent-red">{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-accent-red">
+                  <td className={`${tdCls} text-right tabular-nums text-accent-red`}>{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-semibold text-accent-red`}>
                     {lostOut > 0 ? `−${lostOut.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}` : '0'}
                   </td>
-                  <td className="px-2 py-1.5 text-right tabular-nums">
+                  <td className={`${tdCls} text-right tabular-nums`}>
                     <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
                   </td>
-                  <td className="px-2 py-1.5 text-dark-muted max-w-xs">{e.reason}</td>
+                  <td className={`${tdCls} text-dark-muted max-w-xs`}>{e.reason}</td>
                 </tr>
               )
             })}
@@ -385,106 +385,106 @@ function AnomalyMethodSection({ method, anomalies, unitName }) {
       <div className="overflow-x-auto max-h-[210px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-dark-card">
-            <tr className="border-b border-dark-border text-left text-dark-muted">
-              <th className="px-2 py-1.5">Дата</th>
+            <tr className="text-left text-dark-muted">
+              <th className={thCls}>Дата</th>
               {isBalanceClosure && (
                 <>
-                  <th className="px-2 py-1.5 text-right">Вход замер (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выход замер (т)</th>
-                  <th className="px-2 py-1.5 text-right">Небаланс (т)</th>
-                  <th className="px-2 py-1.5 text-right">Небаланс (%)</th>
+                  <th className={`${thCls} text-right`}>Вход замер (т)</th>
+                  <th className={`${thCls} text-right`}>Выход замер (т)</th>
+                  <th className={`${thCls} text-right`}>Небаланс (т)</th>
+                  <th className={`${thCls} text-right`}>Небаланс (%)</th>
                 </>
               )}
               {isReconGap && (
                 <>
-                  <th className="px-2 py-1.5 text-right">Замер сырьё (т)</th>
-                  <th className="px-2 py-1.5 text-right">Согласов сырьё (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ сырьё (т)</th>
-                  <th className="px-2 py-1.5 text-right">Замер продукц (т)</th>
-                  <th className="px-2 py-1.5 text-right">Согласов продукц (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ продукц (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ%</th>
+                  <th className={`${thCls} text-right`}>Замер сырьё (т)</th>
+                  <th className={`${thCls} text-right`}>Согласов сырьё (т)</th>
+                  <th className={`${thCls} text-right`}>Δ сырьё (т)</th>
+                  <th className={`${thCls} text-right`}>Замер продукц (т)</th>
+                  <th className={`${thCls} text-right`}>Согласов продукц (т)</th>
+                  <th className={`${thCls} text-right`}>Δ продукц (т)</th>
+                  <th className={`${thCls} text-right`}>Δ%</th>
                 </>
               )}
               {isCrossUnit && (
                 <>
-                  <th className="px-2 py-1.5">Продукт</th>
-                  <th className="px-2 py-1.5">Откуда</th>
-                  <th className="px-2 py-1.5">Куда</th>
-                  <th className="px-2 py-1.5 text-right">Отдано (т)</th>
-                  <th className="px-2 py-1.5 text-right">Принято (т)</th>
-                  <th className="px-2 py-1.5 text-right">Потери (т)</th>
-                  <th className="px-2 py-1.5 text-right">Δ%</th>
+                  <th className={thCls}>Продукт</th>
+                  <th className={thCls}>Откуда</th>
+                  <th className={thCls}>Куда</th>
+                  <th className={`${thCls} text-right`}>Отдано (т)</th>
+                  <th className={`${thCls} text-right`}>Принято (т)</th>
+                  <th className={`${thCls} text-right`}>Потери (т)</th>
+                  <th className={`${thCls} text-right`}>Δ%</th>
                 </>
               )}
               {isSpc && (
                 <>
-                  <th className="px-2 py-1.5 text-right">Загрузка (т)</th>
-                  <th className="px-2 py-1.5 text-right">Выпуск (т)</th>
-                  <th className="px-2 py-1.5 text-right">Среднее (т)</th>
-                  <th className="px-2 py-1.5 text-right">Отклонение (σ)</th>
+                  <th className={`${thCls} text-right`}>Загрузка (т)</th>
+                  <th className={`${thCls} text-right`}>Выпуск (т)</th>
+                  <th className={`${thCls} text-right`}>Среднее (т)</th>
+                  <th className={`${thCls} text-right`}>Отклонение (σ)</th>
                 </>
               )}
               {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                 <>
-                  <th className="px-2 py-1.5">Описание</th>
-                  <th className="px-2 py-1.5 text-right">Значение</th>
-                  <th className="px-2 py-1.5 text-right">Порог</th>
+                  <th className={thCls}>Описание</th>
+                  <th className={`${thCls} text-right`}>Значение</th>
+                  <th className={`${thCls} text-right`}>Порог</th>
                 </>
               )}
-              <th className="px-2 py-1.5">Уровень</th>
+              <th className={thCls}>Уровень</th>
             </tr>
           </thead>
           <tbody>
             {anomalies.map((a, i) => (
-              <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
-                <td className="px-2 py-1.5 text-dark-text whitespace-nowrap">{a.date}</td>
+              <tr key={i} className="hover:bg-white/5">
+                <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{a.date}</td>
                 {isBalanceClosure && (
                   <>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
                   </>
                 )}
                 {isReconGap && (
                   <>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-blue">{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-green">{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-yellow font-medium">{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
                   </>
                 )}
                 {isCrossUnit && (
                   <>
-                    <td className="px-2 py-1.5 text-dark-text">{a.product}</td>
-                    <td className="px-2 py-1.5 text-dark-text">{a.source_unit_name || '—'}</td>
-                    <td className="px-2 py-1.5 text-dark-text">{a.target_unit_name || '—'}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(1)}%</td>
+                    <td className={`${tdCls} text-dark-text`}>{a.product}</td>
+                    <td className={`${tdCls} text-dark-text`}>{a.source_unit_name || '—'}</td>
+                    <td className={`${tdCls} text-dark-text`}>{a.target_unit_name || '—'}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(1)}%</td>
                   </>
                 )}
                 {isSpc && (
                   <>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-accent-red font-medium">{(a.value ?? 0).toFixed(2)}σ</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(2)}σ</td>
                   </>
                 )}
                 {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                   <>
-                    <td className="px-2 py-1.5 text-dark-muted">{a.description}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-text">{a.value}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-dark-muted">{a.threshold}</td>
+                    <td className={`${tdCls} text-dark-muted`}>{a.description}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{a.value}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{a.threshold}</td>
                   </>
                 )}
-                <td className="px-2 py-1.5">
+                <td className={tdCls}>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                     a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                   }`}>
@@ -540,13 +540,13 @@ function ProductTable({ title, titleColor, items, reconColor }) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-dark-border text-dark-muted">
-              <th className="text-left py-1.5 pr-2">Продукт</th>
-              <th className="text-right py-1.5 px-1">Доля</th>
-              <th className="text-right py-1.5 px-1">Замер (т)</th>
-              <th className="text-right py-1.5 px-1">Согл (т)</th>
-              <th className="text-right py-1.5 px-1">&Delta; (т)</th>
-              <th className="text-right py-1.5 pl-1">&Delta; (%)</th>
+            <tr className="text-dark-muted">
+              <th className={`${thCls} text-left`}>Продукт</th>
+              <th className={`${thCls} text-right`}>Доля</th>
+              <th className={`${thCls} text-right`}>Замер (т)</th>
+              <th className={`${thCls} text-right`}>Согл (т)</th>
+              <th className={`${thCls} text-right`}>&Delta; (т)</th>
+              <th className={`${thCls} text-right`}>&Delta; (%)</th>
             </tr>
           </thead>
           <tbody>
@@ -555,13 +555,13 @@ function ProductTable({ title, titleColor, items, reconColor }) {
               const devPct = p.delta_pct != null ? Math.abs(p.delta_pct) : (p.measured ? Math.abs(p.measured - p.reconciled) / Math.abs(p.measured) * 100 : 0)
               const isHigh = devPct > 5
               return (
-                <tr key={i} className="border-b border-dark-border/30 hover:bg-white/5">
-                  <td className="py-1.5 pr-2 text-dark-text truncate max-w-[180px]" title={p.product}>{p.product}</td>
-                  <td className="py-1.5 px-1 text-right tabular-nums text-dark-muted">{(p.share_pct != null ? p.share_pct : 0).toFixed(1)}%</td>
-                  <td className="py-1.5 px-1 text-right tabular-nums text-dark-muted">{(p.measured || 0).toFixed(1)}</td>
-                  <td className={`py-1.5 px-1 text-right tabular-nums font-medium ${reconColor}`}>{(p.reconciled || 0).toFixed(1)}</td>
-                  <td className={`py-1.5 px-1 text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devTons.toFixed(1)}</td>
-                  <td className={`py-1.5 pl-1 text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devPct.toFixed(1)}%</td>
+                <tr key={i} className="hover:bg-white/5">
+                  <td className={`${tdCls} text-dark-text truncate max-w-[180px]`} title={p.product}>{p.product}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(p.share_pct != null ? p.share_pct : 0).toFixed(1)}%</td>
+                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(p.measured || 0).toFixed(1)}</td>
+                  <td className={`${tdCls} text-right tabular-nums font-medium ${reconColor}`}>{(p.reconciled || 0).toFixed(1)}</td>
+                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devTons.toFixed(1)}</td>
+                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devPct.toFixed(1)}%</td>
                 </tr>
               )
             })}

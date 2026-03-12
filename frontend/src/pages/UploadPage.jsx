@@ -161,25 +161,25 @@ export default function UploadPage() {
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-dark-border text-left text-dark-muted text-xs">
-                <th className="px-4 py-2">Файл</th>
-                <th className="px-3 py-2">Период</th>
-                <th className="px-3 py-2 text-right">Дней</th>
-                <th className="px-3 py-2 text-right">Установок</th>
-                <th className="px-3 py-2"></th>
+              <tr className="text-left text-dark-muted text-xs">
+                <th className="px-4 py-2 border border-dark-border/40">Файл</th>
+                <th className="px-3 py-2 border border-dark-border/40">Период</th>
+                <th className="px-3 py-2 border border-dark-border/40 text-right">Дней</th>
+                <th className="px-3 py-2 border border-dark-border/40 text-right">Установок</th>
+                <th className="px-3 py-2 border border-dark-border/40"></th>
               </tr>
             </thead>
             <tbody>
               {files.map(f => (
-                <tr key={f.filename} className="border-b border-dark-border/50 hover:bg-white/5">
-                  <td className="px-4 py-2.5 flex items-center gap-2">
+                <tr key={f.filename} className="hover:bg-white/5">
+                  <td className="px-4 py-2.5 border border-dark-border/20 flex items-center gap-2">
                     <FileSpreadsheet size={16} className="text-accent-green shrink-0" />
                     <span className="truncate">{f.filename}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-dark-muted">{f.period}</td>
-                  <td className="px-3 py-2.5 text-right">{f.dates?.length || 0}</td>
-                  <td className="px-3 py-2.5 text-right">{f.units?.length || 0}</td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="px-3 py-2.5 border border-dark-border/20 text-dark-muted">{f.period}</td>
+                  <td className="px-3 py-2.5 border border-dark-border/20 text-right">{f.dates?.length || 0}</td>
+                  <td className="px-3 py-2.5 border border-dark-border/20 text-right">{f.units?.length || 0}</td>
+                  <td className="px-3 py-2.5 border border-dark-border/20 text-right">
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(f.filename) }}
                       className="text-dark-muted hover:text-accent-red transition-colors"

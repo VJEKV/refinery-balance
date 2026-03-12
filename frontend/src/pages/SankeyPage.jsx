@@ -120,28 +120,28 @@ export default function SankeyPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-dark-border text-left text-dark-muted text-xs">
-                  <th className="px-4 py-2">Откуда</th>
-                  <th className="px-3 py-2">Куда</th>
-                  <th className="px-3 py-2">Продукт</th>
-                  <th className="px-3 py-2 text-right">Выход (т)</th>
-                  <th className="px-3 py-2 text-right">Вход (т)</th>
-                  <th className="px-3 py-2 text-right">Потери (т)</th>
-                  <th className="px-3 py-2 text-right">Потери %</th>
+                <tr className="text-left text-dark-muted text-xs">
+                  <th className="px-4 py-2 border border-dark-border/40">Откуда</th>
+                  <th className="px-3 py-2 border border-dark-border/40">Куда</th>
+                  <th className="px-3 py-2 border border-dark-border/40">Продукт</th>
+                  <th className="px-3 py-2 border border-dark-border/40 text-right">Выход (т)</th>
+                  <th className="px-3 py-2 border border-dark-border/40 text-right">Вход (т)</th>
+                  <th className="px-3 py-2 border border-dark-border/40 text-right">Потери (т)</th>
+                  <th className="px-3 py-2 border border-dark-border/40 text-right">Потери %</th>
                 </tr>
               </thead>
               <tbody>
                 {sankeyData.losses.map((l, i) => (
-                  <tr key={i} className="border-b border-dark-border/50 hover:bg-white/5">
-                    <td className="px-4 py-2 text-dark-text">{l.source}</td>
-                    <td className="px-3 py-2 text-dark-text">{l.target}</td>
-                    <td className="px-3 py-2 text-dark-muted">{l.product}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-dark-text">{l.output_value.toFixed(1)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-dark-text">{l.input_value.toFixed(1)}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${l.loss > 0 ? 'text-accent-red' : 'text-accent-green'}`}>
+                  <tr key={i} className="hover:bg-white/5">
+                    <td className="px-4 py-2 border border-dark-border/20 text-dark-text">{l.source}</td>
+                    <td className="px-3 py-2 border border-dark-border/20 text-dark-text">{l.target}</td>
+                    <td className="px-3 py-2 border border-dark-border/20 text-dark-muted">{l.product}</td>
+                    <td className="px-3 py-2 border border-dark-border/20 text-right tabular-nums text-dark-text">{l.output_value.toFixed(1)}</td>
+                    <td className="px-3 py-2 border border-dark-border/20 text-right tabular-nums text-dark-text">{l.input_value.toFixed(1)}</td>
+                    <td className={`px-3 py-2 border border-dark-border/20 text-right tabular-nums ${l.loss > 0 ? 'text-accent-red' : 'text-accent-green'}`}>
                       {l.loss > 0 ? '+' : ''}{l.loss.toFixed(1)}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-dark-muted">{l.loss_pct.toFixed(1)}%</td>
+                    <td className="px-3 py-2 border border-dark-border/20 text-right tabular-nums text-dark-muted">{l.loss_pct.toFixed(1)}%</td>
                   </tr>
                 ))}
               </tbody>
