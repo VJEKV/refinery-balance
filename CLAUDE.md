@@ -167,6 +167,13 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 Акценты: #3b82f6 синий, #f59e0b жёлтый, #4ade80 зелёный, #f87171 красный, #a855f7 фиолетовый, #22d3ee циан.
 Шрифт Inter. Иконки Lucide. 5 палитр графиков (classic, ocean, earth, cyberpunk, synthwave).
 
+## Последняя сборка
+- **Дата:** 12 марта 2026
+- **GitHub Actions run:** #22989187283
+- **Артефакт:** `NPZ_MB` — готовый Windows .exe (server.exe + frontend/dist + START/STOP.bat)
+- **Скачать:** GitHub → Actions → «Build Windows EXE» → последний успешный запуск → Artifacts → NPZ_MB
+- Сборка включает все последние изменения UI (Overview, аномалии, Sidebar, HelpPage, anomaly.py)
+
 ## Последние доработки (март 2026)
 
 ### Глобальный фильтр дат
