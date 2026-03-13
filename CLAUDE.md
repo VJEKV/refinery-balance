@@ -168,11 +168,11 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 Шрифт Inter. Иконки Lucide. 5 палитр графиков (classic, ocean, earth, cyberpunk, synthwave).
 
 ## Последняя сборка
-- **Дата:** 12 марта 2026
-- **GitHub Actions run:** #22996156108
+- **Дата:** 13 марта 2026
+- **GitHub Actions run:** #23046960077
 - **Артефакт:** `NPZ_MB` — готовый Windows .exe (server.exe + frontend/dist + START/STOP.bat)
 - **Скачать:** GitHub → Actions → «Build Windows EXE» → последний успешный запуск → Artifacts → NPZ_MB
-- Сборка включает все последние изменения: простои, разделение небаланс/расхождение, Sankey
+- Сборка включает все последние изменения: простои, разделение небаланс/расхождение, Sankey, Excel выгрузка с группировкой
 
 ## Последние доработки (март 2026)
 
@@ -237,6 +237,18 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 - Фильтры: по установке, по уровню (критично/внимание), по методу
 - Экспорт в Excel (.xlsx) с основными данными
 - Описание каждого метода аномалий на карточках (ℹ)
+
+### Excel выгрузка с группировкой по всем вкладкам (v1.7.0)
+- **Простои (downtime):** ExportDialog загружает актуальные данные из `/api/anomalies/downtime-details` вместо старого формата (Дата/Описание/Значение)
+  - Группировка по установкам (outline level 0 = установка с итогами, level 1 = события)
+  - Колонки: Установка | Начало | Конец | Дней | Часов | Тип | Факт выпуск (т/сут) | Норма выпуск (т/сут) | Сокращение выпуска (т) | % загрузки | Обоснование
+- **Небаланс, Расхождение, SPC (balance_closure, recon_gap, spc):**
+  - Автоматическая подгрузка product-details для каждой даты
+  - Outline levels: level 0 = строка аномалии (дата, итоги), level 1 = строки продуктов (Сырьё/Продукция)
+  - Плюсики в Excel для раскрытия/сворачивания продуктов — зеркало UI
+  - Работает в ExportDialog (OverviewPage), exportAnomaliesExcel (UnitCard), exportOverviewExcel (MethodDetailTable)
+- **Межцеховой (cross_unit):** без изменений — уже корректный формат
+- Deep analysis (анализ корректировок для balance_closure): отдельная выгрузка за конкретную дату с продуктами, замерами, корректировками
 
 ---
 
