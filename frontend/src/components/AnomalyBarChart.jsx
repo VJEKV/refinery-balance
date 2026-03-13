@@ -70,7 +70,7 @@ export default function AnomalyBarChart({ anomalies = [] }) {
 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-dark-text mb-3">Аномалии по установкам и методам</h3>
+      <h3 className="text-lg font-bold text-dark-text mb-3">Аномалии по установкам и методам</h3>
       <ResponsiveContainer width="100%" height={Math.max(200, stackedData.length * 50 + 60)}>
         <BarChart
           data={stackedData}
@@ -78,12 +78,12 @@ export default function AnomalyBarChart({ anomalies = [] }) {
           margin={{ top: 5, right: 30, bottom: 5, left: 10 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-          <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+          <XAxis type="number" tick={{ fill: '#cbd5e1', fontSize: 14 }} />
           <YAxis
             dataKey="unit"
             type="category"
-            width={150}
-            tick={{ fill: '#e2e8f0', fontSize: 11 }}
+            width={180}
+            tick={{ fill: '#e2e8f0', fontSize: 14 }}
           />
           <Tooltip
             contentStyle={{
@@ -108,7 +108,7 @@ export default function AnomalyBarChart({ anomalies = [] }) {
       </ResponsiveContainer>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-3 text-xs text-dark-muted">
+      <div className="flex flex-wrap gap-3 mt-3 text-sm text-dark-muted">
         {allMethods.map(m => (
           <span key={m} className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: METHOD_COLORS[m] }} />

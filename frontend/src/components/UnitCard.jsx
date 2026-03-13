@@ -21,8 +21,8 @@ const methodMeta = {
 }
 
 /* ---- cell border classes ---- */
-const thCls = 'px-2 py-1.5 border border-dark-border/40'
-const tdCls = 'px-2 py-1.5 border border-dark-border/20'
+const thCls = 'px-3 py-2 border border-slate-600 bg-slate-800/50'
+const tdCls = 'px-3 py-2 border border-slate-600/70'
 
 /* ---- Sortable table helpers ---- */
 function useSortTable() {
@@ -189,7 +189,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
         </div>
 
         {/* Measured / Reconciled actuals */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 mt-3" style={{ fontSize: '12px', color: '#94a3b8' }}>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 mt-3" style={{ fontSize: '14px', color: '#cbd5e1' }}>
           <div className="flex justify-between"><span>Сырьё (замер)</span><span className="tabular-nums font-medium">{fmt(unit.input_measured || 0)} т</span></div>
           <div className="flex justify-between"><span>Продукция (замер)</span><span className="tabular-nums font-medium">{fmt(unit.output_measured || 0)} т</span></div>
           <div className="flex justify-between"><span>Сырьё (согл)</span><span className="tabular-nums font-medium">{fmt(unit.input_reconciled || 0)} т</span></div>
@@ -197,7 +197,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
         </div>
 
         {/* Delta */}
-        <div className="grid grid-cols-2 gap-x-6 mt-2" style={{ fontSize: '12px' }}>
+        <div className="grid grid-cols-2 gap-x-6 mt-2" style={{ fontSize: '14px' }}>
           {(() => {
             const di = unit.delta_input_tons || 0
             const dip = unit.delta_input_pct || 0
@@ -236,7 +236,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
                   if (!expanded) setExpanded(true)
                   toggleSection(method)
                 }}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-all border ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm transition-all border ${
                   isOpen
                     ? 'border-accent-blue bg-accent-blue/10 text-accent-blue'
                     : 'border-dark-border text-dark-muted hover:border-dark-muted hover:text-dark-text'
@@ -263,7 +263,7 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
         </div>
 
         {/* Expand toggle */}
-        <div className="flex items-center gap-1 mt-3 text-xs text-dark-muted">
+        <div className="flex items-center gap-1 mt-3 text-sm text-dark-muted">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           <span>{expanded ? 'Свернуть' : 'Развернуть аналитику'}</span>
         </div>
@@ -340,11 +340,11 @@ function DowntimeSection({ data, unitName }) {
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-dark-text flex items-center gap-2">
-          <Clock size={15} className="text-accent-yellow" />
+        <h4 className="text-lg font-bold text-dark-text flex items-center gap-2">
+          <Clock size={18} className="text-accent-yellow" />
           Простои и снижение загрузки ({events.length} событий)
           {totalLostOutput > 0 && (
-            <span className="text-xs font-normal text-accent-red ml-2">
+            <span className="text-sm font-normal text-accent-red ml-2">
               Сокращение выпуска: −{totalLostOutput.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} т
             </span>
           )}
@@ -358,10 +358,10 @@ function DowntimeSection({ data, unitName }) {
         </button>
       </div>
 
-      <div className="overflow-x-auto overflow-y-auto">
-        <table className="w-full text-xs min-w-max">
-          <thead className="sticky top-0 bg-dark-card">
-            <tr className="text-left text-dark-muted">
+      <div className="overflow-x-auto overflow-y-auto border border-slate-600 rounded-lg">
+        <table className="w-full text-sm min-w-max">
+          <thead className="sticky top-0 bg-dark-card z-10">
+            <tr className="text-left text-slate-300">
               <SortTh col="start_date" {...sp} className={thCls}>Начало</SortTh>
               <SortTh col="end_date" {...sp} className={thCls}>Конец</SortTh>
               <SortTh col="days" {...sp} className={`${thCls} text-right`}>Длительность</SortTh>
@@ -382,21 +382,21 @@ function DowntimeSection({ data, unitName }) {
                   <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.end_date}</td>
                   <td className={`${tdCls} text-right tabular-nums font-semibold text-dark-text whitespace-nowrap`}>{formatDuration(e.days)}</td>
                   <td className={tdCls}>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                       e.type === 'stop' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                     }`}>
                       {e.type === 'stop' ? 'Остановка' : 'Снижение'}
                     </span>
                   </td>
                   <td className={`${tdCls} text-right tabular-nums text-accent-red`}>{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
-                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
                   <td className={`${tdCls} text-right tabular-nums font-semibold text-accent-red`}>
                     {lostOut > 0 ? `−${lostOut.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}` : '0'}
                   </td>
                   <td className={`${tdCls} text-right tabular-nums`}>
                     <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
                   </td>
-                  <td className={`${tdCls} text-dark-muted max-w-xs`}>{e.reason}</td>
+                  <td className={`${tdCls} text-slate-300 max-w-xs`}>{e.reason}</td>
                 </tr>
               )
             })}
@@ -453,32 +453,26 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
     <>
       <tr>
         <td colSpan={colSpan} className="px-4 pt-2 pb-1">
-          <span className={`text-[10px] font-semibold ${color}`}>{label} ({items.length} поз.)</span>
+          <span className={`text-xs font-semibold ${color}`}>{label} ({items.length} поз.)</span>
         </td>
       </tr>
       {items.map((p, j) => {
         const isHigh = p.delta_pct > 5
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
-            <td className={`${tdCls} text-dark-text pl-6`} title={p.product}>↳ {p.product}</td>
+            <td className={`${tdCls} text-slate-200 pl-6`} title={p.product}>↳ {p.product}</td>
             {isSpc ? (
               <>
-                <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums text-slate-200`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                 <td colSpan={colSpan - 2} className={tdCls} />
               </>
             ) : (
               <>
                 <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                {!isBalance && <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>}
-                {isBalance ? (
-                  <td colSpan={colSpan - 2} className={tdCls} />
-                ) : (
-                  <>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
-                    <td colSpan={colSpan - 5} className={tdCls} />
-                  </>
-                )}
+                <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(p.reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                {colSpan > 5 && <td colSpan={colSpan - 5} className={tdCls} />}
               </>
             )}
           </tr>
@@ -492,12 +486,12 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
       <tr>
         <td colSpan={colSpan} className="bg-[#0a1225] px-4 py-1 border-t border-accent-blue/20">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-accent-blue font-semibold">Продукты за {dateStr}</span>
+            <span className="text-xs text-accent-blue font-semibold">Продукты за {dateStr}</span>
             <button
               onClick={() => exportProductsExcel(data, unitName, dateStr)}
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
+              className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
             >
-              <Download size={10} /> Excel
+              <Download size={12} /> Excel
             </button>
           </div>
         </td>
@@ -533,23 +527,23 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-dark-text flex items-center gap-2">
-          <Icon size={15} className={meta.color} />
+        <h4 className="text-lg font-bold text-dark-text flex items-center gap-2">
+          <Icon size={18} className={meta.color} />
           {meta.label} ({anomalies.length} событий)
         </h4>
         <button
           onClick={() => exportAnomaliesExcel(anomalies, unitName, method)}
-          className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
+          className="flex items-center gap-1 px-2 py-1 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
         >
           <Download size={12} />
           Excel
         </button>
       </div>
 
-      <div className="overflow-x-auto overflow-y-auto">
-        <table className="w-full text-xs min-w-max">
+      <div className="overflow-x-auto overflow-y-auto border border-slate-600 rounded-lg">
+        <table className="w-full text-sm min-w-max">
           <thead className="sticky top-0 bg-dark-card z-10">
-            <tr className="text-left text-dark-muted">
+            <tr className="text-left text-slate-300">
               <SortTh col="date" {...sp} className={thCls}>Дата</SortTh>
               {isBalanceClosure && (
                 <>
@@ -639,8 +633,8 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                         <td className={`${tdCls} text-dark-text`}>{a.product}</td>
                         <td className={`${tdCls} text-dark-text`}>{a.source_unit_name || '—'}</td>
                         <td className={`${tdCls} text-dark-text`}>{a.target_unit_name || '—'}</td>
-                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(1)}%</td>
                       </>
@@ -649,19 +643,19 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                       <>
                         <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(2)}σ</td>
                       </>
                     )}
                     {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                       <>
-                        <td className={`${tdCls} text-dark-muted`}>{a.description}</td>
+                        <td className={`${tdCls} text-slate-300`}>{a.description}</td>
                         <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{a.value}</td>
-                        <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{a.threshold}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{a.threshold}</td>
                       </>
                     )}
                     <td className={tdCls}>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                         a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                       }`}>
                         {a.severity === 'critical' ? 'Критично' : 'Внимание'}
@@ -692,13 +686,13 @@ function PlanBar({ label, pct, fact, plan, fmt }) {
   const color = pct >= 95 ? '#4ade80' : pct >= 80 ? '#fbbf24' : '#f87171'
   return (
     <div>
-      <div className="text-xs text-dark-muted mb-1">{label}</div>
+      <div className="text-sm text-dark-muted mb-1">{label}</div>
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-6 bg-dark-border/50 rounded-full overflow-hidden relative">
+        <div className="flex-1 h-14 bg-dark-border/50 rounded-full overflow-hidden relative">
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${barWidth}%`, backgroundColor: color }} />
-          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-bold tabular-nums drop-shadow-sm">{fmt(fact)} из {fmt(plan)} т</span>
+          <span className="absolute inset-0 flex items-center justify-center text-base text-white font-bold tabular-nums drop-shadow-sm">{fmt(fact)} из {fmt(plan)} т</span>
         </div>
-        <span className="text-lg font-bold tabular-nums w-16 text-right" style={{ color }}>{pct.toFixed(1)}%</span>
+        <span className="text-xl font-bold tabular-nums w-20 text-right" style={{ color }}>{pct.toFixed(1)}%</span>
       </div>
     </div>
   )
@@ -711,7 +705,7 @@ function ProductsTable({ products }) {
   if (!hasInputs && !hasOutputs) return null
   return (
     <div>
-      <div className="text-sm font-medium text-dark-text mb-3">Продукты и сырьё</div>
+      <div className="text-lg font-bold text-dark-text mb-3">Продукты и сырьё</div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {hasInputs && <ProductTable title="Сырьё (вход)" titleColor="text-accent-blue" items={products.inputs} reconColor="text-accent-green" />}
         {hasOutputs && <ProductTable title="Продукция (выход)" titleColor="text-accent-green" items={products.outputs} reconColor="text-accent-blue" />}
@@ -723,11 +717,11 @@ function ProductsTable({ products }) {
 function ProductTable({ title, titleColor, items, reconColor }) {
   return (
     <div className="bg-dark-card border border-dark-border rounded-lg p-3">
-      <div className={`text-xs font-semibold ${titleColor} mb-2`}>{title} — {items.length} поз.</div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+      <div className={`text-sm font-semibold ${titleColor} mb-2`}>{title} — {items.length} поз.</div>
+      <div className="overflow-x-auto border border-slate-600 rounded-lg">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="text-dark-muted">
+            <tr className="text-slate-300">
               <th className={`${thCls} text-left`}>Продукт</th>
               <th className={`${thCls} text-right`}>Доля</th>
               <th className={`${thCls} text-right`}>Замер (т)</th>
@@ -744,11 +738,11 @@ function ProductTable({ title, titleColor, items, reconColor }) {
               return (
                 <tr key={i} className="hover:bg-white/5">
                   <td className={`${tdCls} text-dark-text truncate max-w-[180px]`} title={p.product}>{p.product}</td>
-                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(p.share_pct != null ? p.share_pct : 0).toFixed(1)}%</td>
-                  <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(p.measured || 0).toFixed(1)}</td>
+                  <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(p.share_pct != null ? p.share_pct : 0).toFixed(1)}%</td>
+                  <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(p.measured || 0).toFixed(1)}</td>
                   <td className={`${tdCls} text-right tabular-nums font-medium ${reconColor}`}>{(p.reconciled || 0).toFixed(1)}</td>
-                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devTons.toFixed(1)}</td>
-                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-dark-muted'}`}>{devPct.toFixed(1)}%</td>
+                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-slate-300'}`}>{devTons.toFixed(1)}</td>
+                  <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-semibold' : 'text-slate-300'}`}>{devPct.toFixed(1)}%</td>
                 </tr>
               )
             })}

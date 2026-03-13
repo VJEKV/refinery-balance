@@ -226,7 +226,10 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
               <div
                 key={cfg.key}
                 className="bg-dark-card border rounded-lg p-2"
-                style={{ borderColor: `${cfg.color}33` }}
+                style={{
+                  borderColor: `${cfg.color}60`,
+                  boxShadow: `0 0 8px ${cfg.color}40, 0 0 20px ${cfg.color}20, inset 0 0 8px ${cfg.color}10`,
+                }}
               >
                 <div
                   className="flex items-center justify-between cursor-pointer"
@@ -234,17 +237,17 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
-                    <span className="text-xs text-dark-text truncate">{cfg.label}</span>
+                    <span className="text-sm text-dark-text truncate">{cfg.label}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-xs tabular-nums" style={{ color: cfg.color }}>
+                    <span className="text-sm tabular-nums" style={{ color: cfg.color }}>
                       {(values[cfg.key] ?? 0).toFixed(1)}{cfg.unit}
                     </span>
                     {isExpanded ? <ChevronUp size={12} className="text-dark-muted" /> : <ChevronDown size={12} className="text-dark-muted" />}
                   </div>
                 </div>
                 {isExpanded && (
-                  <p className="text-[0.65rem] text-dark-muted mt-1.5 leading-relaxed">
+                  <p className="text-xs text-dark-muted mt-1.5 leading-relaxed">
                     {cfg.desc}
                   </p>
                 )}
@@ -289,10 +292,10 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
 
       {/* Info */}
       <div className="p-3 mt-auto space-y-1">
-        <div className="text-xs text-dark-muted">Файлов: {fileCount}</div>
-        <div className="text-xs text-dark-muted">Установок: {unitCount}</div>
-        {dateRange && <div className="text-xs text-dark-muted">Период: {dateRange}</div>}
-        <div className="text-[10px] text-dark-muted/50 pt-1">v1.4.0</div>
+        <div className="text-sm text-dark-muted">Файлов: {fileCount}</div>
+        <div className="text-sm text-dark-muted">Установок: {unitCount}</div>
+        {dateRange && <div className="text-sm text-dark-muted">Период: {dateRange}</div>}
+        <div className="text-xs text-dark-muted/50 pt-1">v1.5.0</div>
       </div>
     </aside>
   )

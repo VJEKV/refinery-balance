@@ -11,30 +11,30 @@ import * as XLSX from 'xlsx'
 
 const methodConfig = {
   balance_closure: {
-    label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10',
+    label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10', hex: '#f87171',
     desc: 'Разница между тем, что поступило на установку, и тем, что вышло. Если разница больше порога — возможны потери продукции, ошибки приборов или неучтённые сбросы.',
   },
   recon_gap: {
-    label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow', bg: 'bg-accent-yellow/10',
+    label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow', bg: 'bg-accent-yellow/10', hex: '#f59e0b',
     desc: 'Приборы показали одно значение, а в согласованном балансе — другое. Чем больше разница — тем менее достоверны данные. Причины: неточные приборы, ручные корректировки, ошибки ввода.',
   },
   spc: {
-    label: 'Нетипичные дни', icon: Activity, color: 'text-accent-blue', bg: 'bg-accent-blue/10',
+    label: 'Нетипичные дни', icon: Activity, color: 'text-accent-blue', bg: 'bg-accent-blue/10', hex: '#3b82f6',
     desc: 'Дни, когда загрузка установки резко отличалась от обычного уровня. Возможны сбои оборудования, ошибки данных или нештатные режимы работы.',
   },
   downtime: {
-    label: 'Простой', icon: Clock, color: 'text-dark-muted', bg: 'bg-white/5',
+    label: 'Простой', icon: Clock, color: 'text-dark-muted', bg: 'bg-white/5', hex: '#64748b',
     desc: 'Загрузка установки ниже порога от среднего уровня — установка не работала или работала на минимуме. Порог задаёт, при каком проценте от обычной загрузки день считается простоем.',
   },
   cross_unit: {
-    label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green', bg: 'bg-accent-green/10',
+    label: 'Потери продукции между установками', icon: GitBranch, color: 'text-accent-green', bg: 'bg-accent-green/10', hex: '#22d3ee',
     desc: 'Одна установка отдала продукт, а следующая получила меньше. Разница может означать потери при передаче, ошибки учёта или утечки на соединительных трубопроводах.',
   },
 }
 
 /* ---- cell border classes for all tables ---- */
-const thCls = 'px-2 py-1.5 border border-dark-border/40'
-const tdCls = 'px-2 py-1.5 border border-dark-border/20'
+const thCls = 'px-3 py-2 border border-slate-600 bg-slate-800/50'
+const tdCls = 'px-3 py-2 border border-slate-600/70'
 
 /* ---- Sortable table helpers ---- */
 function useSortTable() {
@@ -214,7 +214,10 @@ export default function OverviewPage() {
           const unitCount = Object.keys(unitGroups).length
 
           return (
-            <div key={key} className="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+            <div key={key} className="bg-dark-card border rounded-xl overflow-hidden" style={{
+              borderColor: `${cfg.hex}60`,
+              boxShadow: `0 0 10px ${cfg.hex}30, 0 0 25px ${cfg.hex}15, inset 0 0 8px ${cfg.hex}08`,
+            }}>
               {/* Level 1: Method card */}
               <div className="flex items-center">
                 <button
@@ -225,7 +228,7 @@ export default function OverviewPage() {
                     <Icon size={16} className={cfg.color} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-dark-text flex items-center gap-2">
+                    <div className="text-lg font-bold text-dark-text flex items-center gap-2">
                       {cfg.label}
                       <button
                         onClick={(e) => toggleInfo(key, e)}
@@ -234,10 +237,10 @@ export default function OverviewPage() {
                         }`}
                         title="Описание метода"
                       >
-                        <Info size={14} />
+                        <Info size={16} />
                       </button>
                     </div>
-                    <div className="flex gap-3 mt-0.5 text-xs">
+                    <div className="flex gap-3 mt-0.5 text-sm">
                       <span className="text-dark-muted">Всего: {s.total}</span>
                       {s.critical > 0 && (
                         <span className="text-accent-red flex items-center gap-1">
@@ -270,7 +273,7 @@ export default function OverviewPage() {
                       const methodAnomalies = (anomalies || []).filter(a => a.method === key)
                       exportOverviewExcel(methodAnomalies, key)
                     }}
-                    className="mr-4 flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20 shrink-0"
+                    className="mr-4 flex items-center gap-1 px-2 py-1 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20 shrink-0"
                   >
                     <Download size={12} />
                     Excel
@@ -281,7 +284,7 @@ export default function OverviewPage() {
               {/* Info panel */}
               {infoOpen === key && (
                 <div className="mx-4 mb-3 px-3 py-2 bg-accent-blue/5 border border-accent-blue/20 rounded-lg">
-                  <p className="text-xs text-dark-muted leading-relaxed">{cfg.desc}</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{cfg.desc}</p>
                 </div>
               )}
 
@@ -299,8 +302,8 @@ export default function OverviewPage() {
                           <span className={`w-2 h-2 rounded-full shrink-0 ${
                             unitGroup.items.some(a => a.severity === 'critical') ? 'bg-accent-red' : 'bg-accent-yellow'
                           }`} />
-                          <span className="text-sm text-dark-text flex-1">{unitGroup.name}</span>
-                          <span className="text-xs text-dark-muted tabular-nums">{unitGroup.items.length} событий</span>
+                          <span className="text-base text-dark-text flex-1">{unitGroup.name}</span>
+                          <span className="text-sm text-dark-muted tabular-nums">{unitGroup.items.length} событий</span>
                           {isUnitOpen
                             ? <ChevronUp size={14} className="text-dark-muted shrink-0" />
                             : <ChevronDown size={14} className="text-dark-muted shrink-0" />
@@ -368,28 +371,28 @@ function DowntimeBlock({ unitCode, unitName, dateParams }) {
     <div className="bg-[#080e20] px-6 py-3 border-b border-dark-border/30">
       <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-dark-text flex items-center gap-2">
-            <Clock size={15} className="text-accent-yellow" />
+          <h4 className="text-lg font-bold text-dark-text flex items-center gap-2">
+            <Clock size={18} className="text-accent-yellow" />
             Простои и снижение загрузки ({events.length} событий)
             {totalLostOutput > 0 && (
-              <span className="text-xs font-normal text-accent-red ml-2">
+              <span className="text-sm font-normal text-accent-red ml-2">
                 Сокращение выпуска: −{totalLostOutput.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} т
               </span>
             )}
           </h4>
           <button
             onClick={() => exportDowntimeExcel(events, unitName)}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
+            className="flex items-center gap-1 px-2 py-1 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
           >
             <Download size={12} />
             Excel
           </button>
         </div>
 
-        <div className="overflow-x-auto overflow-y-auto">
-          <table className="w-full text-xs min-w-max">
-            <thead className="sticky top-0 bg-dark-card">
-              <tr className="text-left text-dark-muted">
+        <div className="overflow-x-auto overflow-y-auto border border-slate-600 rounded-lg">
+          <table className="w-full text-sm min-w-max">
+            <thead className="sticky top-0 bg-dark-card z-10">
+              <tr className="text-left text-slate-300">
                 <SortTh col="start_date" {...sp} className={thCls}>Начало</SortTh>
                 <SortTh col="end_date" {...sp} className={thCls}>Конец</SortTh>
                 <SortTh col="days" {...sp} className={`${thCls} text-right`}>Длительность</SortTh>
@@ -410,21 +413,21 @@ function DowntimeBlock({ unitCode, unitName, dateParams }) {
                     <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.end_date}</td>
                     <td className={`${tdCls} text-right tabular-nums font-semibold text-dark-text whitespace-nowrap`}>{formatDuration(e.days)}</td>
                     <td className={tdCls}>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                         e.type === 'stop' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                       }`}>
                         {e.type === 'stop' ? 'Остановка' : 'Снижение'}
                       </span>
                     </td>
                     <td className={`${tdCls} text-right tabular-nums text-accent-red`}>{(e.fact_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
-                    <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(e.norm_output ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}</td>
                     <td className={`${tdCls} text-right tabular-nums font-semibold text-accent-red`}>
                       {lostOut > 0 ? `−${lostOut.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}` : '0'}
                     </td>
                     <td className={`${tdCls} text-right tabular-nums`}>
                       <span className={e.avg_load_pct < 10 ? 'text-accent-red' : 'text-accent-yellow'}>{e.avg_load_pct}%</span>
                     </td>
-                    <td className={`${tdCls} text-dark-muted max-w-xs`}>{e.reason}</td>
+                    <td className={`${tdCls} text-slate-300 max-w-xs`}>{e.reason}</td>
                   </tr>
                 )
               })}
@@ -478,32 +481,26 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
     <>
       <tr>
         <td colSpan={colSpan} className="px-4 pt-2 pb-1">
-          <span className={`text-[10px] font-semibold ${color}`}>{label} ({items.length} поз.)</span>
+          <span className={`text-xs font-semibold ${color}`}>{label} ({items.length} поз.)</span>
         </td>
       </tr>
       {items.map((p, j) => {
         const isHigh = p.delta_pct > 5
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
-            <td className={`${tdCls} text-dark-text pl-6`} title={p.product}>↳ {p.product}</td>
+            <td className={`${tdCls} text-slate-200 pl-6`} title={p.product}>↳ {p.product}</td>
             {isSpc ? (
               <>
-                <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums text-slate-200`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                 <td colSpan={colSpan - 2} className={tdCls} />
               </>
             ) : (
               <>
                 <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                {!isBalance && <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{p.reconciled.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>}
-                {isBalance ? (
-                  <td colSpan={colSpan - 2} className={tdCls} />
-                ) : (
-                  <>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_tons.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{p.delta_pct.toFixed(2)}%</td>
-                    <td colSpan={colSpan - 5} className={tdCls} />
-                  </>
-                )}
+                <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(p.reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                {colSpan > 5 && <td colSpan={colSpan - 5} className={tdCls} />}
               </>
             )}
           </tr>
@@ -517,12 +514,12 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
       <tr>
         <td colSpan={colSpan} className="bg-[#0a1225] px-4 py-1 border-t border-accent-blue/20">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-accent-blue font-semibold">Продукты за {dateStr}</span>
+            <span className="text-xs text-accent-blue font-semibold">Продукты за {dateStr}</span>
             <button
               onClick={() => exportProductsExcel(data, unitName, dateStr)}
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
+              className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
             >
-              <Download size={10} /> Excel
+              <Download size={12} /> Excel
             </button>
           </div>
         </td>
@@ -558,23 +555,23 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
     <div className="bg-[#080e20] px-6 py-3 border-b border-dark-border/30">
       <div className="bg-dark-card border border-dark-border rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-dark-text flex items-center gap-2">
-            {Icon && <Icon size={15} className={cfg.color} />}
+          <h4 className="text-lg font-bold text-dark-text flex items-center gap-2">
+            {Icon && <Icon size={18} className={cfg.color} />}
             {cfg?.label || method} ({items.length} событий)
           </h4>
           <button
             onClick={() => exportOverviewExcel(items, method)}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
+            className="flex items-center gap-1 px-2 py-1 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
           >
             <Download size={12} />
             Excel
           </button>
         </div>
 
-        <div className="overflow-x-auto overflow-y-auto">
-          <table className="w-full text-xs min-w-max">
+        <div className="overflow-x-auto overflow-y-auto border border-slate-600 rounded-lg">
+          <table className="w-full text-sm min-w-max">
             <thead className="sticky top-0 bg-dark-card z-10">
-              <tr className="text-left text-dark-muted">
+              <tr className="text-left text-slate-300">
                 <SortTh col="date" {...sp} className={thCls}>Дата</SortTh>
                 {isBalanceClosure && (
                   <>
@@ -663,7 +660,7 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                         <>
                           <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.produced ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.mean ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(2)}σ</td>
                         </>
                       )}
@@ -672,21 +669,21 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                           <td className={`${tdCls} text-dark-text`}>{a.product}</td>
                           <td className={`${tdCls} text-dark-text`}>{a.source_unit_name || '—'}</td>
                           <td className={`${tdCls} text-dark-text`}>{a.target_unit_name || '—'}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.output_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{(a.input_value ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.output_value ?? 0) - (a.input_value ?? 0)).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.value ?? 0).toFixed(1)}%</td>
                         </>
                       )}
                       {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
                         <>
-                          <td className={`${tdCls} text-dark-muted`}>{a.description}</td>
+                          <td className={`${tdCls} text-slate-300`}>{a.description}</td>
                           <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{a.value}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-dark-muted`}>{a.threshold}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-slate-300`}>{a.threshold}</td>
                         </>
                       )}
                       <td className={tdCls}>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                           a.severity === 'critical' ? 'bg-accent-red/10 text-accent-red' : 'bg-accent-yellow/10 text-accent-yellow'
                         }`}>
                           {a.severity === 'critical' ? 'Критично' : 'Внимание'}
