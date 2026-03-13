@@ -10,6 +10,24 @@ function sanitize(str) {
 }
 
 /**
+ * Format ISO date (YYYY-MM-DD) to Russian format (DD.MM.YYYY).
+ * For short display on charts use fmtDateShort (DD.MM).
+ */
+export function fmtDate(iso) {
+  if (!iso) return ''
+  const parts = String(iso).slice(0, 10).split('-')
+  if (parts.length !== 3) return iso
+  return `${parts[2]}.${parts[1]}.${parts[0]}`
+}
+
+export function fmtDateShort(iso) {
+  if (!iso) return ''
+  const parts = String(iso).slice(0, 10).split('-')
+  if (parts.length !== 3) return iso
+  return `${parts[2]}.${parts[1]}`
+}
+
+/**
  * Download a workbook as .xlsx file in the browser.
  */
 export function downloadXlsx(wb, filename) {

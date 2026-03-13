@@ -8,6 +8,7 @@ import ChartWrapper from '../components/ChartWrapper'
 import ReconHeatmap from '../components/ReconHeatmap'
 import { ArrowLeft } from 'lucide-react'
 import { useDateFilter } from '../hooks/useDateFilter'
+import { fmtDate } from '../utils/excelExport'
 
 export default function UnitDetailPage() {
   const { code } = useParams()
@@ -37,7 +38,7 @@ export default function UnitDetailPage() {
         <div>
           <h1 className="text-xl font-bold text-dark-text">{data.name}</h1>
           <p className="text-xs text-dark-muted mt-0.5">
-            Период: {data.dates[0]} — {data.dates[data.dates.length - 1]}
+            Период: {fmtDate(data.dates[0])} — {fmtDate(data.dates[data.dates.length - 1])}
           </p>
         </div>
       </div>

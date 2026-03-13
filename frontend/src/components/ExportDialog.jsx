@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { X, Download, Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../api/client'
-import { downloadXlsx } from '../utils/excelExport'
+import { downloadXlsx, fmtDate } from '../utils/excelExport'
 
 function sanitize(str) {
   return str.replace(/[\\/?*[\]]/g, '_')
@@ -193,8 +193,8 @@ async function doExportDowntime(anomalies) {
     for (const e of events) {
       rows.push({
         'Установка': '',
-        'Начало': e.start_date,
-        'Конец': e.end_date,
+        'Начало': fmtDate(e.start_date),
+        'Конец': fmtDate(e.end_date),
         'Дней': e.days,
         'Часов': e.days * 24,
         'Тип': e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка',
@@ -259,13 +259,13 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
     let row
     if (isBalance) {
       row = {
-        'Дата': a.date, 'Установка': a.unit_name || '',
+        'Дата': fmtDate(a.date), 'Установка': a.unit_name || '',
         'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
         'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
       }
     } else if (isRecon) {
       row = {
-        'Дата': a.date, 'Установка': a.unit_name || '',
+        'Дата': fmtDate(a.date), 'Установка': a.unit_name || '',
         'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
         'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
         'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
@@ -274,20 +274,20 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
       }
     } else if (isSpc) {
       row = {
-        'Дата': a.date, 'Установка': a.unit_name || '',
+        'Дата': fmtDate(a.date), 'Установка': a.unit_name || '',
         'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
         'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
       }
     } else if (isCross) {
       row = {
-        'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
+        'Дата': fmtDate(a.date), 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
         'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
         'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
         'Δ%': a.value, 'Уровень': sev(a),
       }
     } else {
       row = {
-        'Дата': a.date, 'Установка': a.unit_name || '',
+        'Дата': fmtDate(a.date), 'Установка': a.unit_name || '',
         'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a),
       }
     }

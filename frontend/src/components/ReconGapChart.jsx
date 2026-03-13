@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
 import { Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { fmtDateShort } from '../utils/excelExport'
 
 function TonnageLabel({ x, y, width, height, value }) {
   if (value == null || height < 18) return null
@@ -28,7 +29,7 @@ export default function ReconGapChart({ reconData, threshold = 5, resolved }) {
   const hasTons = Array.isArray(reconData.gaps_tons)
 
   const data = reconData.dates.map((d, i) => ({
-    date: d.slice(5),
+    date: fmtDateShort(d),
     gap: reconData.gaps[i],
     tons: hasTons ? reconData.gaps_tons[i] : undefined,
   }))

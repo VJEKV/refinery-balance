@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { fmtDateShort } from '../utils/excelExport'
 
 export default function CusumChart({ cusumData, resolved }) {
   const [showHelp, setShowHelp] = useState(false)
@@ -12,7 +13,7 @@ export default function CusumChart({ cusumData, resolved }) {
   const { colors, fontFamily, fontSize } = resolved
   const { dates, s_plus, s_minus, H } = cusumData
   const data = dates.map((d, i) => ({
-    date: d.slice(5),
+    date: fmtDateShort(d),
     'S+': s_plus[i],
     'S-': s_minus[i],
   }))

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { fmtDateShort } from '../utils/excelExport'
 
 const PRODUCT_COLORS = [
   '#3b82f6', '#4ade80', '#f59e0b', '#f87171', '#a855f7',
@@ -21,7 +22,7 @@ export default function ProductReconChart({ productRecon, direction = 'inputs', 
     )
 
     const chartData = dates.map((d, i) => {
-      const row = { date: d.slice(5) }
+      const row = { date: fmtDateShort(d) }
       active.forEach(p => {
         const key = p.product.slice(0, 20)
         row[key] = mode === 'pct' ? p.gaps_pct[i] : p.gaps_tons[i]

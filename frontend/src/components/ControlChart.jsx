@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer } from 'recharts'
 import { Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { fmtDateShort } from '../utils/excelExport'
 
 export default function ControlChart({ spcData, resolved }) {
   const [showHelp, setShowHelp] = useState(false)
@@ -12,7 +13,7 @@ export default function ControlChart({ spcData, resolved }) {
   const { colors, fontFamily, fontSize } = resolved
   const { dates, values, mean, sigma } = spcData
   const data = dates.map((d, i) => ({
-    date: d.slice(5),
+    date: fmtDateShort(d),
     value: values[i],
     zone: Math.abs(values[i] - mean) / (sigma || 1),
   }))

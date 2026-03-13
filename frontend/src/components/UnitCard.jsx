@@ -11,7 +11,7 @@ import ReconHeatmap from './ReconHeatmap'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
-import { downloadXlsx, exportSheet } from '../utils/excelExport'
+import { downloadXlsx, exportSheet, fmtDate } from '../utils/excelExport'
 
 const methodMeta = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
@@ -61,8 +61,8 @@ function SortTh({ children, col, sortCol, sortDir, onSort, className = '' }) {
 function exportDowntimeExcel(events, unitName) {
   if (!events || events.length === 0) return
   const rows = events.map(e => ({
-    'Начало': e.start_date,
-    'Конец': e.end_date,
+    'Начало': fmtDate(e.start_date),
+    'Конец': fmtDate(e.end_date),
     'Дней': e.days,
     'Часов': e.days * 24,
     'Тип': e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка',
@@ -111,30 +111,30 @@ async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
     let row
     if (isBalance) {
       row = {
-        'Дата': a.date, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Дата': fmtDate(a.date), 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
         'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
       }
     } else if (isRecon) {
       row = {
-        'Дата': a.date, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
+        'Дата': fmtDate(a.date), 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
         'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
         'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
         'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
       }
     } else if (isSpc) {
       row = {
-        'Дата': a.date, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
+        'Дата': fmtDate(a.date), 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
         'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
       }
     } else if (method === 'cross_unit') {
       row = {
-        'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
+        'Дата': fmtDate(a.date), 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
         'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
         'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
         'Δ%': a.value, 'Уровень': sev(a),
       }
     } else {
-      row = { 'Дата': a.date, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
+      row = { 'Дата': fmtDate(a.date), 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
     }
     rows.push(row)
     rowOutlines.push(0)
@@ -472,8 +472,8 @@ function DowntimeSection({ data, unitName }) {
               const lostOut = e.lost_output_tons ?? 0
               return (
                 <tr key={i} className="hover:bg-white/5">
-                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.start_date}</td>
-                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{e.end_date}</td>
+                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{fmtDate(e.start_date)}</td>
+                  <td className={`${tdCls} text-dark-text whitespace-nowrap`}>{fmtDate(e.end_date)}</td>
                   <td className={`${tdCls} text-right tabular-nums font-semibold text-dark-text whitespace-nowrap`}>{formatDuration(e.days)}</td>
                   <td className={tdCls}>
                     <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -507,7 +507,7 @@ function exportProductsExcel(products, unitName, dateStr) {
     const label = dir === 'inputs' ? 'Сырьё' : 'Продукция'
     ;(products[dir] || []).forEach(p => {
       rows.push({
-        'Дата': dateStr,
+        'Дата': fmtDate(dateStr),
         'Тип': label,
         'Продукт': p.product,
         'Замер (т)': p.measured,
@@ -602,7 +602,7 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
       <tr>
         <td colSpan={colSpan} className="bg-[#0a1225] px-4 py-1 border-t border-accent-blue/20">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-accent-blue font-semibold">Продукты за {dateStr}</span>
+            <span className="text-xs text-accent-blue font-semibold">Продукты за {fmtDate(dateStr)}</span>
             <button
               onClick={() => exportProductsExcel(data, unitName, dateStr)}
               className="flex items-center gap-1 px-1.5 py-0.5 text-xs bg-accent-blue/10 text-accent-blue rounded hover:bg-accent-blue/20"
@@ -638,7 +638,7 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
 
   const exportAnalysis = () => {
     const rows = corrected.map(p => ({
-      'Дата': dateStr, 'Направление': p.direction, 'Продукт': p.product,
+      'Дата': fmtDate(dateStr), 'Направление': p.direction, 'Продукт': p.product,
       'Замер (т)': p.measured, 'Согласов (т)': p.reconciled,
       'Корректировка (т)': p.delta_tons, 'Корректировка (%)': p.delta_pct,
     }))
@@ -657,7 +657,7 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle size={14} className="text-accent-red" />
-              <span className="text-sm font-bold text-dark-text">Анализ корректировок за {dateStr}</span>
+              <span className="text-sm font-bold text-dark-text">Анализ корректировок за {fmtDate(dateStr)}</span>
             </div>
             <button
               onClick={exportAnalysis}
@@ -851,7 +851,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                   >
                     <td className={`${tdCls} text-dark-text whitespace-nowrap`}>
                       {canExpand && <span className="mr-1 text-dark-muted">{isDateExpanded ? '▾' : '▸'}</span>}
-                      {a.date}
+                      {fmtDate(a.date)}
                     </td>
                     {isBalanceClosure && (
                       <>
