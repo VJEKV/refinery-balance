@@ -81,34 +81,125 @@ function exportDowntimeExcel(events, unitName) {
   downloadXlsx(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
-function exportAnomaliesExcel(anomalies, unitName, method) {
+async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
   if (!anomalies || anomalies.length === 0) return
   const label = methodMeta[method]?.label || method
   const sev = a => a.severity === 'critical' ? 'Критично' : 'Внимание'
-  const rows = anomalies.map(a => {
-    if (method === 'balance_closure') return {
-      'Дата': a.date, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
-      'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
+  const isBalance = method === 'balance_closure'
+  const isRecon = method === 'recon_gap'
+  const isSpc = method === 'spc'
+  const canExpand = isBalance || isRecon || isSpc
+
+  // Fetch product details for expandable methods
+  let productCache = {}
+  if (canExpand) {
+    const keys = new Set()
+    anomalies.forEach(a => keys.add(a.date))
+    const code = unitCode || anomalies[0]?.unit
+    for (const date of keys) {
+      try {
+        const resp = await api.get('/anomalies/product-details', { params: { unit: code, date } })
+        productCache[date] = resp.data
+      } catch { productCache[date] = { inputs: [], outputs: [] } }
     }
-    if (method === 'recon_gap') return {
-      'Дата': a.date, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
-      'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
-      'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
-      'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
+  }
+
+  const rows = []
+  const rowOutlines = []
+
+  for (const a of anomalies) {
+    let row
+    if (isBalance) {
+      row = {
+        'Дата': a.date, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
+      }
+    } else if (isRecon) {
+      row = {
+        'Дата': a.date, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
+        'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
+        'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
+        'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
+      }
+    } else if (isSpc) {
+      row = {
+        'Дата': a.date, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
+        'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
+      }
+    } else if (method === 'cross_unit') {
+      row = {
+        'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
+        'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
+        'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
+        'Δ%': a.value, 'Уровень': sev(a),
+      }
+    } else {
+      row = { 'Дата': a.date, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
     }
-    if (method === 'spc') return {
-      'Дата': a.date, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
-      'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
+    rows.push(row)
+    rowOutlines.push(0)
+
+    // Product detail rows
+    if (canExpand) {
+      const details = productCache[a.date]
+      if (details) {
+        const addProducts = (items, direction) => {
+          items.forEach(p => {
+            let pRow
+            if (isBalance) {
+              pRow = {
+                'Дата': '', 'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct,
+                'Уровень': `  ${direction}: ${p.product}`,
+              }
+            } else if (isRecon) {
+              pRow = {
+                'Дата': '', 'Сырьё изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Сырьё согл (т)': direction === 'Сырьё' ? p.reconciled : null,
+                'Δ сырьё (т)': direction === 'Сырьё' ? p.delta_tons : null,
+                'Δ сырьё (%)': direction === 'Сырьё' ? p.delta_pct : null,
+                'Продукция изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Продукция согл (т)': direction === 'Продукция' ? p.reconciled : null,
+                'Δ продукц (т)': direction === 'Продукция' ? p.delta_tons : null,
+                'Δ продукц (%)': direction === 'Продукция' ? p.delta_pct : null,
+                'Уровень': `  ${direction}: ${p.product}`,
+              }
+            } else if (isSpc) {
+              pRow = {
+                'Дата': '', 'Загрузка (т)': direction === 'Сырьё' ? p.measured : null,
+                'Выпуск (т)': direction === 'Продукция' ? p.measured : null,
+                'Среднее (т)': null, 'Отклонение (σ)': null,
+                'Уровень': `  ${direction}: ${p.product}`,
+              }
+            }
+            if (pRow) {
+              rows.push(pRow)
+              rowOutlines.push(1)
+            }
+          })
+        }
+        if (details.inputs?.length > 0) addProducts(details.inputs, 'Сырьё')
+        if (details.outputs?.length > 0) addProducts(details.outputs, 'Продукция')
+      }
     }
-    if (method === 'cross_unit') return {
-      'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
-      'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
-      'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
-      'Δ%': a.value, 'Уровень': sev(a),
-    }
-    return { 'Дата': a.date, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
-  })
+  }
+
+  if (rows.length === 0) return
+
   const ws = XLSX.utils.json_to_sheet(rows)
+
+  // Apply outline levels for expandable methods
+  if (canExpand) {
+    ws['!rows'] = [{}] // header
+    for (let i = 0; i < rowOutlines.length; i++) {
+      ws['!rows'].push({
+        outlineLevel: rowOutlines[i],
+        hidden: rowOutlines[i] > 0,
+      })
+    }
+  }
+
   const wb = XLSX.utils.book_new()
   const safe = label.replace(/[\\/?*[\]]/g, '_')
   XLSX.utils.book_append_sheet(wb, ws, safe.slice(0, 31))
@@ -685,7 +776,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
           {meta.label} ({anomalies.length} событий)
         </h4>
         <button
-          onClick={() => exportAnomaliesExcel(anomalies, unitName, method)}
+          onClick={() => exportAnomaliesExcel(anomalies, unitName, method, unitCode)}
           className="flex items-center gap-1 px-2 py-1 text-sm bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg hover:bg-accent-blue/20"
         >
           <Download size={12} />

@@ -71,35 +71,127 @@ function SortTh({ children, col, sortCol, sortDir, onSort, className = '' }) {
   )
 }
 
-function exportOverviewExcel(anomalies, methodKey) {
+async function exportOverviewExcel(anomalies, methodKey) {
   if (!anomalies || anomalies.length === 0) return
   const label = methodConfig[methodKey]?.label || methodKey
   const sev = a => a.severity === 'critical' ? 'Критично' : 'Внимание'
-  const rows = anomalies.map(a => {
+  const isBalance = methodKey === 'balance_closure'
+  const isRecon = methodKey === 'recon_gap'
+  const isSpc = methodKey === 'spc'
+  const canExpand = isBalance || isRecon || isSpc
+
+  // Fetch product details for expandable methods
+  let productCache = {}
+  if (canExpand) {
+    const keys = new Set()
+    anomalies.forEach(a => keys.add(`${a.unit}__${a.date}`))
+    for (const key of keys) {
+      const [unit, date] = key.split('__')
+      try {
+        const resp = await api.get('/anomalies/product-details', { params: { unit, date } })
+        productCache[key] = resp.data
+      } catch { productCache[key] = { inputs: [], outputs: [] } }
+    }
+  }
+
+  const rows = []
+  const rowOutlines = []
+
+  for (const a of anomalies) {
     const u = a.unit_name || ''
-    if (methodKey === 'balance_closure') return {
-      'Дата': a.date, 'Установка': u, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
-      'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
+    let row
+    if (isBalance) {
+      row = {
+        'Дата': a.date, 'Установка': u, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
+      }
+    } else if (isRecon) {
+      row = {
+        'Дата': a.date, 'Установка': u, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
+        'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
+        'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
+        'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
+      }
+    } else if (isSpc) {
+      row = {
+        'Дата': a.date, 'Установка': u, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
+        'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
+      }
+    } else if (methodKey === 'cross_unit') {
+      row = {
+        'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
+        'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
+        'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
+        'Δ%': a.value, 'Уровень': sev(a),
+      }
+    } else {
+      row = { 'Дата': a.date, 'Установка': u, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
     }
-    if (methodKey === 'recon_gap') return {
-      'Дата': a.date, 'Установка': u, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
-      'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
-      'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
-      'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
+    rows.push(row)
+    rowOutlines.push(0)
+
+    // Product detail rows
+    if (canExpand) {
+      const key = `${a.unit}__${a.date}`
+      const details = productCache[key]
+      if (details) {
+        const addProducts = (items, direction) => {
+          items.forEach(p => {
+            let pRow
+            if (isBalance) {
+              pRow = {
+                'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
+                'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct, 'Уровень': '',
+              }
+            } else if (isRecon) {
+              pRow = {
+                'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
+                'Сырьё изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Сырьё согл (т)': direction === 'Сырьё' ? p.reconciled : null,
+                'Δ сырьё (т)': direction === 'Сырьё' ? p.delta_tons : null,
+                'Δ сырьё (%)': direction === 'Сырьё' ? p.delta_pct : null,
+                'Продукция изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Продукция согл (т)': direction === 'Продукция' ? p.reconciled : null,
+                'Δ продукц (т)': direction === 'Продукция' ? p.delta_tons : null,
+                'Δ продукц (%)': direction === 'Продукция' ? p.delta_pct : null,
+                'Уровень': '',
+              }
+            } else if (isSpc) {
+              pRow = {
+                'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
+                'Загрузка (т)': p.measured, 'Выпуск (т)': null,
+                'Среднее (т)': null, 'Отклонение (σ)': null, 'Уровень': '',
+              }
+            }
+            if (pRow) {
+              rows.push(pRow)
+              rowOutlines.push(1)
+            }
+          })
+        }
+        if (details.inputs?.length > 0) addProducts(details.inputs, 'Сырьё')
+        if (details.outputs?.length > 0) addProducts(details.outputs, 'Продукция')
+      }
     }
-    if (methodKey === 'spc') return {
-      'Дата': a.date, 'Установка': u, 'Загрузка (т)': a.consumed, 'Выпуск (т)': a.produced,
-      'Среднее (т)': a.mean, 'Отклонение (σ)': a.value, 'Уровень': sev(a),
-    }
-    if (methodKey === 'cross_unit') return {
-      'Дата': a.date, 'Продукт': a.product, 'Откуда': a.source_unit_name, 'Куда': a.target_unit_name,
-      'Отдано (т)': a.output_value, 'Принято (т)': a.input_value,
-      'Потери (т)': Math.round(((a.output_value ?? 0) - (a.input_value ?? 0)) * 10) / 10,
-      'Δ%': a.value, 'Уровень': sev(a),
-    }
-    return { 'Дата': a.date, 'Установка': u, 'Описание': a.description, 'Значение': a.value, 'Порог': a.threshold, 'Уровень': sev(a) }
-  })
+  }
+
+  if (rows.length === 0) return
+
   const ws = XLSX.utils.json_to_sheet(rows)
+
+  // Apply outline levels
+  if (canExpand) {
+    ws['!rows'] = [{}] // header
+    for (let i = 0; i < rowOutlines.length; i++) {
+      ws['!rows'].push({
+        outlineLevel: rowOutlines[i],
+        hidden: rowOutlines[i] > 0,
+      })
+    }
+  }
+
   const wb = XLSX.utils.book_new()
   const safe = label.replace(/[\\/?*[\]]/g, '_')
   XLSX.utils.book_append_sheet(wb, ws, safe.slice(0, 31))

@@ -13,6 +13,9 @@ export default function ExportDialog({ isOpen, onClose, method, methodLabel, met
   const [includeProducts, setIncludeProducts] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  const isDowntime = method === 'downtime'
+  const canIncludeProducts = ['balance_closure', 'recon_gap', 'spc'].includes(method)
+
   const criticalCount = useMemo(() => anomalies.filter(a => a.severity === 'critical').length, [anomalies])
   const warnCount = useMemo(() => anomalies.filter(a => a.severity === 'warn').length, [anomalies])
 
@@ -25,7 +28,11 @@ export default function ExportDialog({ isOpen, onClose, method, methodLabel, met
     if (filtered.length === 0) return
     setExporting(true)
     try {
-      await doExport(filtered, method, methodLabel, includeProducts)
+      if (isDowntime) {
+        await doExportDowntime(filtered)
+      } else {
+        await doExport(filtered, method, methodLabel, includeProducts && canIncludeProducts)
+      }
     } catch (e) {
       console.error('Export error:', e)
     }
@@ -62,36 +69,47 @@ export default function ExportDialog({ isOpen, onClose, method, methodLabel, met
           {methodLabel}
         </div>
 
-        <div className="mb-4 mt-3">
-          <div className="text-sm text-slate-300 mb-2">Уровень аномалий:</div>
-          <div className="space-y-1.5">
-            {radios.map(r => (
-              <label key={r.value} className="flex items-center gap-2 cursor-pointer text-sm text-dark-text hover:bg-white/5 px-2 py-1.5 rounded-lg transition-colors">
-                <input
-                  type="radio"
-                  name="severity"
-                  value={r.value}
-                  checked={severity === r.value}
-                  onChange={() => setSeverity(r.value)}
-                  className="accent-blue-500"
-                />
-                {r.label}
-              </label>
-            ))}
+        {/* Severity filter — not for downtime (no severity on downtime-details) */}
+        {!isDowntime && (
+          <div className="mb-4 mt-3">
+            <div className="text-sm text-slate-300 mb-2">Уровень аномалий:</div>
+            <div className="space-y-1.5">
+              {radios.map(r => (
+                <label key={r.value} className="flex items-center gap-2 cursor-pointer text-sm text-dark-text hover:bg-white/5 px-2 py-1.5 rounded-lg transition-colors">
+                  <input
+                    type="radio"
+                    name="severity"
+                    value={r.value}
+                    checked={severity === r.value}
+                    onChange={() => setSeverity(r.value)}
+                    className="accent-blue-500"
+                  />
+                  {r.label}
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="mb-5">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-dark-text hover:bg-white/5 px-2 py-1.5 rounded-lg transition-colors">
-            <input
-              type="checkbox"
-              checked={includeProducts}
-              onChange={e => setIncludeProducts(e.target.checked)}
-              className="accent-blue-500"
-            />
-            Включить продукты (уровень 3)
-          </label>
-        </div>
+        {isDowntime && (
+          <div className="mb-4 mt-3 text-sm text-slate-400">
+            Будут загружены данные по простоям для всех установок: начало, конец, длительность, тип, факт/норма выпуска, сокращение выпуска, обоснование.
+          </div>
+        )}
+
+        {canIncludeProducts && (
+          <div className="mb-5">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-dark-text hover:bg-white/5 px-2 py-1.5 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={includeProducts}
+                onChange={e => setIncludeProducts(e.target.checked)}
+                className="accent-blue-500"
+              />
+              Включить продукты (с группировкой)
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-2 justify-end">
           <button
@@ -123,6 +141,98 @@ async function fetchProductDetails(unitCode, date) {
   }
 }
 
+async function fetchDowntimeDetails(unitCode, dateParams) {
+  try {
+    const resp = await api.get('/anomalies/downtime-details', { params: { unit: unitCode, ...dateParams } })
+    return resp.data
+  } catch {
+    return { events: [] }
+  }
+}
+
+/* ================================================================
+   Export downtime — fetches real downtime-details per unit
+   Groups by unit with outline levels
+   ================================================================ */
+async function doExportDowntime(anomalies) {
+  // Collect unique units from downtime anomalies
+  const unitMap = new Map()
+  for (const a of anomalies) {
+    if (!unitMap.has(a.unit)) {
+      unitMap.set(a.unit, a.unit_name || a.unit)
+    }
+  }
+
+  const rows = []
+  const rowOutlines = []
+
+  for (const [unitCode, unitName] of unitMap) {
+    const data = await fetchDowntimeDetails(unitCode)
+    const events = data?.events || []
+    if (events.length === 0) continue
+
+    const totalLost = events.reduce((s, e) => s + (e.lost_output_tons ?? 0), 0)
+
+    // Level 0 — unit summary row
+    rows.push({
+      'Установка': unitName,
+      'Начало': '',
+      'Конец': '',
+      'Дней': events.reduce((s, e) => s + (e.days ?? 0), 0),
+      'Часов': events.reduce((s, e) => s + (e.days ?? 0), 0) * 24,
+      'Тип': `${events.length} событий`,
+      'Факт выпуск (т/сут)': '',
+      'Норма выпуск (т/сут)': '',
+      'Сокращение выпуска (т)': totalLost,
+      'Загрузка (%)': '',
+      'Обоснование': '',
+    })
+    rowOutlines.push(0)
+
+    // Level 1 — each event
+    for (const e of events) {
+      rows.push({
+        'Установка': '',
+        'Начало': e.start_date,
+        'Конец': e.end_date,
+        'Дней': e.days,
+        'Часов': e.days * 24,
+        'Тип': e.type === 'stop' ? 'Полный простой' : 'Сниженная загрузка',
+        'Факт выпуск (т/сут)': e.fact_output ?? 0,
+        'Норма выпуск (т/сут)': e.norm_output ?? 0,
+        'Сокращение выпуска (т)': e.lost_output_tons ?? 0,
+        'Загрузка (%)': e.avg_load_pct,
+        'Обоснование': e.reason || '',
+      })
+      rowOutlines.push(1)
+    }
+  }
+
+  if (rows.length === 0) return
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [
+    { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 7 },
+    { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 12 }, { wch: 70 },
+  ]
+
+  // Apply outline levels
+  ws['!rows'] = [{}] // header row
+  for (let i = 0; i < rowOutlines.length; i++) {
+    ws['!rows'].push({
+      outlineLevel: rowOutlines[i],
+      hidden: rowOutlines[i] > 0,
+    })
+  }
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Простои')
+  downloadXlsx(wb, `Простои_${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
+/* ================================================================
+   Export other methods — with optional product outline levels
+   ================================================================ */
 async function doExport(anomalies, method, methodLabel, includeProducts) {
   const sev = a => a.severity === 'critical' ? 'Критично' : 'Внимание'
   const isBalance = method === 'balance_closure'
@@ -145,7 +255,6 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
   const rowOutlines = []
 
   for (const a of anomalies) {
-    // Level 2 row
     let row
     if (isBalance) {
       row = {
@@ -182,9 +291,9 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
       }
     }
     rows.push(row)
-    rowOutlines.push(0) // level 2 = no outline
+    rowOutlines.push(0)
 
-    // Level 3 product rows
+    // Product detail rows (outline level 1)
     if (includeProducts && (isBalance || isRecon || isSpc)) {
       const key = `${a.unit}__${a.date}`
       const details = productCache[key]
@@ -197,7 +306,7 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
                 'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
                 'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
                 'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
-                'Небаланс (т)': null, 'Небаланс (%)': null, 'Уровень': '',
+                'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct, 'Уровень': '',
               }
             } else if (isRecon) {
               pRow = {
@@ -221,7 +330,7 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
             }
             if (pRow) {
               rows.push(pRow)
-              rowOutlines.push(1) // level 3 = outline 1
+              rowOutlines.push(1)
             }
           })
         }
@@ -237,12 +346,13 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
 
   // Apply row grouping (outline levels)
   if (includeProducts) {
-    ws['!rows'] = rowOutlines.map((level, i) => ({
-      outlineLevel: level,
-      hidden: level > 0,
-    }))
-    // Shift by 1 for header row
-    ws['!rows'].unshift({})
+    ws['!rows'] = [{}] // header row
+    for (let i = 0; i < rowOutlines.length; i++) {
+      ws['!rows'].push({
+        outlineLevel: rowOutlines[i],
+        hidden: rowOutlines[i] > 0,
+      })
+    }
   }
 
   const wb = XLSX.utils.book_new()
