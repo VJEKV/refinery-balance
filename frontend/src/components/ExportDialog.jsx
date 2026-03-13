@@ -2,6 +2,11 @@ import { useState, useMemo } from 'react'
 import { X, Download, Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '../api/client'
+import { downloadXlsx } from '../utils/excelExport'
+
+function sanitize(str) {
+  return str.replace(/[\\/?*[\]]/g, '_')
+}
 
 export default function ExportDialog({ isOpen, onClose, method, methodLabel, methodColor, anomalies = [] }) {
   const [severity, setSeverity] = useState('all')
@@ -241,19 +246,6 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
   }
 
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, methodLabel.slice(0, 31))
-  downloadXlsx(wb, `${methodLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`)
-}
-
-function downloadXlsx(wb, filename) {
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([buf], { type: 'application/octet-stream' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  XLSX.utils.book_append_sheet(wb, ws, sanitize(methodLabel).slice(0, 31))
+  downloadXlsx(wb, `${sanitize(methodLabel)}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }

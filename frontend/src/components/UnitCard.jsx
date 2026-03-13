@@ -11,19 +11,7 @@ import ReconHeatmap from './ReconHeatmap'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
-
-function downloadXlsx(wb, filename) {
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([buf], { type: 'application/octet-stream' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
+import { downloadXlsx, exportSheet } from '../utils/excelExport'
 
 const methodMeta = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
@@ -122,8 +110,9 @@ function exportAnomaliesExcel(anomalies, unitName, method) {
   })
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
-  downloadXlsx(wb, `${label}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  const safe = label.replace(/[\\/?*[\]]/g, '_')
+  XLSX.utils.book_append_sheet(wb, ws, safe.slice(0, 31))
+  downloadXlsx(wb, `${safe}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export default function UnitCard({ unit, anomalies = [], activeMethod = null }) {
@@ -463,6 +452,11 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
   const isRecon = method === 'recon_gap'
   const isSpc = method === 'spc'
 
+  // Deep analysis mode for balance_closure
+  if (isBalance) {
+    return <DeepAnalysisSubRow data={data} inputs={inputs} outputs={outputs} colSpan={colSpan} unitName={unitName} dateStr={dateStr} />
+  }
+
   const renderSection = (items, label, color, isInput) => items.length > 0 && (
     <>
       <tr>
@@ -476,14 +470,6 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
             <td className={`${tdCls} text-slate-200 pl-6`} title={p.product}>↳ {p.product}</td>
-            {isBalance && (
-              <>
-                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{isInput ? fmt(p.measured) : ''}</td>
-                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{!isInput ? fmt(p.measured) : ''}</td>
-                <td className={tdCls} />
-                <td className={tdCls} />
-              </>
-            )}
             {isRecon && (
               <>
                 {isInput ? (
@@ -538,6 +524,135 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
       {renderSection(outputs, 'Продукция', 'text-accent-green', false)}
       <tr><td colSpan={colSpan} className="bg-[#0a1225] h-1 border-b border-accent-blue/20" /></tr>
     </>
+  )
+}
+
+/* Deep analysis panel for balance_closure drill-downs */
+function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr }) {
+  const fmt = v => (v ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+  const fmtPct = v => (v ?? 0).toFixed(2)
+
+  const allProducts = [
+    ...inputs.map(p => ({ ...p, direction: 'Сырьё' })),
+    ...outputs.map(p => ({ ...p, direction: 'Продукция' })),
+  ]
+  const corrected = allProducts.filter(p => (p.delta_pct ?? 0) > 0).sort((a, b) => (b.delta_pct ?? 0) - (a.delta_pct ?? 0))
+  const maxDelta = corrected.length > 0 ? corrected[0].delta_pct : 0
+
+  const totalCorrInput = inputs.reduce((s, p) => s + Math.abs(p.delta_tons ?? 0), 0)
+  const totalCorrOutput = outputs.reduce((s, p) => s + Math.abs(p.delta_tons ?? 0), 0)
+  const totalCorr = totalCorrInput + totalCorrOutput
+  const bigCorrections = corrected.filter(p => (p.delta_pct ?? 0) > 3)
+
+  const exportAnalysis = () => {
+    const rows = corrected.map(p => ({
+      'Дата': dateStr, 'Направление': p.direction, 'Продукт': p.product,
+      'Замер (т)': p.measured, 'Согласов (т)': p.reconciled,
+      'Корректировка (т)': p.delta_tons, 'Корректировка (%)': p.delta_pct,
+    }))
+    if (rows.length === 0) return
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Анализ корректировок')
+    downloadXlsx(wb, `Анализ_корректировок_${unitName}_${dateStr}.xlsx`)
+  }
+
+  return (
+    <tr>
+      <td colSpan={colSpan} className="p-0">
+        <div className="bg-[#060d1f] border-t border-b border-accent-red/20 px-5 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-accent-red" />
+              <span className="text-sm font-bold text-dark-text">Анализ корректировок за {dateStr}</span>
+            </div>
+            <button
+              onClick={exportAnalysis}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded hover:bg-accent-blue/20"
+            >
+              <Download size={12} /> Excel
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-dark-card border border-dark-border rounded-lg px-3 py-2">
+              <div className="text-[10px] text-dark-muted uppercase tracking-wider">Сумма корректировок</div>
+              <div className="text-lg font-bold text-accent-yellow tabular-nums">{fmt(totalCorr)} т</div>
+              <div className="text-[10px] text-slate-400">сырьё: {fmt(totalCorrInput)} т / продукция: {fmt(totalCorrOutput)} т</div>
+            </div>
+            <div className="bg-dark-card border border-dark-border rounded-lg px-3 py-2">
+              <div className="text-[10px] text-dark-muted uppercase tracking-wider">Скорректировано продуктов</div>
+              <div className="text-lg font-bold text-dark-text tabular-nums">{corrected.length} <span className="text-sm font-normal text-dark-muted">из {allProducts.length}</span></div>
+            </div>
+            <div className="bg-dark-card border border-dark-border rounded-lg px-3 py-2">
+              <div className="text-[10px] text-dark-muted uppercase tracking-wider">Крупные корр. (&gt;3%)</div>
+              <div className={`text-lg font-bold tabular-nums ${bigCorrections.length > 0 ? 'text-accent-red' : 'text-accent-green'}`}>{bigCorrections.length}</div>
+            </div>
+          </div>
+
+          {corrected.length > 0 && (
+            <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-400">
+                    <th className={`${thCls} text-xs`}>Продукт</th>
+                    <th className={`${thCls} text-xs`}>Тип</th>
+                    <th className={`${thCls} text-xs text-right`}>Замер (т)</th>
+                    <th className={`${thCls} text-xs text-right`}>Согласов (т)</th>
+                    <th className={`${thCls} text-xs text-right`}>Корр. (т)</th>
+                    <th className={`${thCls} text-xs text-right`}>Корр. (%)</th>
+                    <th className={`${thCls} text-xs w-28`}>Масштаб</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {corrected.map((p, i) => {
+                    const pct = p.delta_pct ?? 0
+                    const isHigh = pct > 3
+                    const barWidth = maxDelta > 0 ? Math.min(100, (pct / maxDelta) * 100) : 0
+                    return (
+                      <tr key={i} className={isHigh ? 'bg-accent-red/5' : 'bg-[#0a1225]'}>
+                        <td className={`${tdCls} text-dark-text font-medium`}>{p.product}</td>
+                        <td className={tdCls}>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            p.direction === 'Сырьё' ? 'bg-accent-blue/10 text-accent-blue' : 'bg-accent-green/10 text-accent-green'
+                          }`}>{p.direction}</span>
+                        </td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
+                        <td className={`${tdCls} text-right tabular-nums font-medium ${isHigh ? 'text-accent-red' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
+                        <td className={`${tdCls} text-right tabular-nums font-medium ${isHigh ? 'text-accent-red' : 'text-accent-yellow'}`}>{fmtPct(pct)}%</td>
+                        <td className={tdCls}>
+                          <div className="w-full bg-slate-700/30 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full ${isHigh ? 'bg-accent-red' : 'bg-accent-yellow'}`}
+                              style={{ width: `${barWidth}%` }}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {bigCorrections.length > 0 && (
+            <div className="bg-accent-red/5 border border-accent-red/20 rounded-lg px-3 py-2">
+              <p className="text-xs text-slate-300 leading-relaxed">
+                <span className="text-accent-red font-semibold">Вывод: </span>
+                {bigCorrections.length === 1
+                  ? `Продукт «${bigCorrections[0].product}» (${bigCorrections[0].direction.toLowerCase()}) скорректирован на ${fmtPct(bigCorrections[0].delta_pct)}% — основной источник расхождения.`
+                  : `${bigCorrections.length} продукт(ов) скорректировано более чем на 3%: ${bigCorrections.slice(0, 3).map(p => `«${p.product}» ${fmtPct(p.delta_pct)}%`).join(', ')}${bigCorrections.length > 3 ? ` и ещё ${bigCorrections.length - 3}` : ''}.`
+                }
+                {' '}Рекомендуется проверить показания приборов учёта по этим позициям.
+              </p>
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
   )
 }
 
