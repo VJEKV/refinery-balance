@@ -242,5 +242,18 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, methodLabel.slice(0, 31))
-  XLSX.writeFile(wb, `${methodLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  downloadXlsx(wb, `${methodLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
+function downloadXlsx(wb, filename) {
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }

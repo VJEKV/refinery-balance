@@ -12,6 +12,19 @@ import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
 
+function downloadXlsx(wb, filename) {
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 const methodMeta = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
   recon_gap: { label: 'Расхождение измерено/согласовано', icon: BarChart3, color: 'text-accent-yellow' },
@@ -77,7 +90,7 @@ function exportDowntimeExcel(events, unitName) {
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Простои')
-  XLSX.writeFile(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  downloadXlsx(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function exportAnomaliesExcel(anomalies, unitName, method) {
@@ -110,7 +123,7 @@ function exportAnomaliesExcel(anomalies, unitName, method) {
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
-  XLSX.writeFile(wb, `${label}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  downloadXlsx(wb, `${label}_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export default function UnitCard({ unit, anomalies = [], activeMethod = null }) {
@@ -427,7 +440,7 @@ function exportProductsExcel(products, unitName, dateStr) {
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Продукты')
-  XLSX.writeFile(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
+  downloadXlsx(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
 }
 
 function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {

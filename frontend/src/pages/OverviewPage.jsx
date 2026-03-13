@@ -10,6 +10,19 @@ import { AlertTriangle, BarChart3, Activity, Clock, GitBranch, ChevronDown, Chev
 import * as XLSX from 'xlsx'
 import ExportDialog from '../components/ExportDialog'
 
+function downloadXlsx(wb, filename) {
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([buf], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 const methodConfig = {
   balance_closure: {
     label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red', bg: 'bg-accent-red/10', hex: '#f87171',
@@ -101,7 +114,7 @@ function exportOverviewExcel(anomalies, methodKey) {
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31))
-  XLSX.writeFile(wb, `${label}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  downloadXlsx(wb, `${label}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function exportDowntimeExcel(events, unitName) {
@@ -125,7 +138,7 @@ function exportDowntimeExcel(events, unitName) {
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Простои')
-  XLSX.writeFile(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  downloadXlsx(wb, `Простои_${unitName}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 function formatDuration(days) {
@@ -466,7 +479,7 @@ function exportProductsExcel(products, unitName, dateStr) {
   const ws = XLSX.utils.json_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Продукты')
-  XLSX.writeFile(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
+  downloadXlsx(wb, `Расхождение_продукты_${unitName}_${dateStr}.xlsx`)
 }
 
 function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
