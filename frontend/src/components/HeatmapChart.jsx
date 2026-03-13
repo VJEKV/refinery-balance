@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo, useRef } from 'react'
 import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
+import InfoTooltip from './InfoTooltip'
 
 /** Load/production color: 13 steps, 10% intervals. 100% = max green */
 function colorForLoadPct(pct) {
@@ -106,8 +107,10 @@ export default function HeatmapChart() {
       const sumImb = sumC - sumP
       const imbalance = unit.consumed.map((c, i) => c - (unit.produced[i] || 0))
       const imbPct = unit.consumed.map((c, i) => c > 0 ? Math.abs(c - (unit.produced[i] || 0)) / c * 100 : 0)
-      const cPct = unit.consumed.map(c => avgC > 0 ? c / avgC * 100 : 0)
-      const pPct = unit.produced.map(p => avgP > 0 ? p / avgP * 100 : 0)
+      const planC = unit.plan_day_input || 0
+      const planP = unit.plan_day_output || 0
+      const cPct = unit.consumed.map(c => planC > 0 ? c / planC * 100 : (avgC > 0 ? c / avgC * 100 : 0))
+      const pPct = unit.produced.map(p => planP > 0 ? p / planP * 100 : (avgP > 0 ? p / avgP * 100 : 0))
       return {
         ...unit,
         avgC, avgP, sumC, sumP, sumImb,
@@ -146,7 +149,10 @@ export default function HeatmapChart() {
   return (
     <div className="space-y-4" ref={containerRef}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-dark-text">Тепловая карта загрузки</h3>
+        <h3 className="text-sm font-semibold text-dark-text">
+          Тепловая карта загрузки
+          <InfoTooltip wide text="Загрузка и выпуск: факт за день / план на день × 100%. Дисбаланс: (загрузка − выпуск) / загрузка × 100% — доля потерь от входа." />
+        </h3>
         <div className="flex rounded-lg border border-dark-border overflow-hidden">
           <button
             onClick={() => setMode('tons')}
@@ -278,8 +284,8 @@ export default function HeatmapChart() {
         >
           <div className="font-semibold">{tooltip.unitName}</div>
           <div className="text-gray-500">{new Date(tooltip.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} / {tooltip.rowType}</div>
-          <div className="mt-1">Факт загрузка: <span className="font-medium">{fmtTons(tooltip.consumed)} т</span> ({Math.round(tooltip.cPct)}%)</div>
-          <div>Факт выпуск: <span className="font-medium">{fmtTons(tooltip.produced)} т</span> ({Math.round(tooltip.pPct)}%)</div>
+          <div className="mt-1">Факт загрузка: <span className="font-medium">{fmtTons(tooltip.consumed)} т</span> ({Math.round(tooltip.cPct)}% от плана)</div>
+          <div>Факт выпуск: <span className="font-medium">{fmtTons(tooltip.produced)} т</span> ({Math.round(tooltip.pPct)}% от плана)</div>
           {tooltip.planC > 0 && <div className="text-gray-500">План загрузка: {fmtTons(tooltip.planC)} т/день</div>}
           {tooltip.planP > 0 && <div className="text-gray-500">План выпуск: {fmtTons(tooltip.planP)} т/день</div>}
           <div className="font-semibold mt-0.5">

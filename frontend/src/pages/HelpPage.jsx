@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch } from 'lucide-react'
+import { AlertTriangle, BarChart3, Activity, TrendingUp, Clock, GitBranch, Calculator, Target, BookOpen } from 'lucide-react'
 
 const methods = [
   {
@@ -57,15 +57,150 @@ const methods = [
   },
 ]
 
+const formulas = [
+  {
+    name: 'Загрузка / Выпуск (% от плана)',
+    formula: 'факт за день / план на день × 100%',
+    explain: 'Показывает, насколько установка загружена по сравнению с планом. 100% — план выполнен. Меньше 100% — недозагрузка. Больше 100% — перегрузка.',
+    where: 'Тепловая карта загрузки, прогресс-бар в карточке установки.',
+  },
+  {
+    name: 'Небаланс (% потерь)',
+    formula: '(загрузка − выпуск) / загрузка × 100%',
+    explain: 'Какая доля сырья «потерялась» внутри установки. Например, 5% означает, что из 100 тонн сырья 5 тонн не вышло продуктом. Причины: потери, испарение, неучтённые сбросы, ошибка приборов.',
+    where: 'Тепловая карта загрузки (строка «дисбаланс»), аккордеон «Небаланс вход/выход».',
+  },
+  {
+    name: 'Расхождение замер/согласовано',
+    formula: '|замер − согласовано| / замер × 100%',
+    explain: 'На сколько процентов показание прибора отличается от значения в отчёте. Например, прибор показал 100 т, в отчёт записали 95 т — корректировка 5%. Чем выше процент, тем сильнее «подвинули» прибор при согласовании баланса.',
+    where: 'Тепловая карта продуктов, аккордеон «Расхождение», таблица продуктов при раскрытии даты.',
+  },
+  {
+    name: 'Потери между установками',
+    formula: '(отдано − принято) / отдано × 100%',
+    explain: 'Какая доля продукта потерялась при передаче от одной установки к другой. Например, Пиролиз отдал 100 т бензина, а БПГ принял 97 т — потери 3%.',
+    where: 'Аккордеон «Потери продукции между установками».',
+  },
+  {
+    name: 'Нетипичные дни (σ — сигма)',
+    formula: '(факт − среднее) / стандартное отклонение',
+    explain: 'Это не проценты, а статистическая мера. Показывает, насколько день отличался от обычного. 2σ — заметное отклонение, 3σ — сильное. Чем больше число, тем необычнее был этот день.',
+    where: 'Аккордеон «Нетипичные дни».',
+  },
+  {
+    name: 'Доля продукта',
+    formula: 'объём продукта / общий объём по направлению × 100%',
+    explain: 'Какую часть от всего сырья (или всей продукции) составляет этот конкретный продукт. Помогает понять, какие продукты основные, а какие второстепенные.',
+    where: 'Таблица продуктов при раскрытии даты (столбец «Доля»).',
+  },
+]
+
 export default function HelpPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <h1 className="text-xl font-bold text-dark-text">Справка</h1>
       <p className="text-sm text-dark-muted">
-        Система анализирует материальный баланс НПЗ и автоматически выявляет аномалии шести типов.
-        Ниже описано, что означает каждый тип, какие риски он несёт и какие документы стоит запросить для проверки.
+        Система анализирует материальный баланс НПЗ и автоматически выявляет аномалии.
+        Ниже — как устроена аналитика, что означают проценты, какие проблемы система помогает найти и как ей пользоваться.
       </p>
 
+      {/* === Как работает аналитика === */}
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-accent-blue/10 flex items-center justify-center">
+            <BookOpen size={18} className="text-accent-blue" />
+          </div>
+          <h2 className="text-base font-semibold text-dark-text">Как работает аналитика</h2>
+        </div>
+        <div className="space-y-3 text-sm text-dark-muted">
+          <p>
+            <span className="text-dark-text font-medium">Исходные данные</span> — файлы .xlsm с суточными отчётами установок.
+            В каждом файле по каждой установке за каждый день записаны объёмы сырья и продукции в тоннах.
+          </p>
+          <p>
+            <span className="text-dark-text font-medium">Два потока данных:</span>
+          </p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li><span className="text-accent-blue">Замер (измеренное)</span> — что показал прибор (расходомер, уровнемер). Это первичные данные.</li>
+            <li><span className="text-accent-green">Согласовано</span> — скорректированное значение из отчёта. После закрытия суток технологи и бухгалтерия согласовывают баланс, и значения могут отличаться от приборных.</li>
+          </ul>
+          <p>
+            <span className="text-dark-text font-medium">План</span> — плановая загрузка на день (из того же файла). Система сравнивает факт с планом, чтобы показать, насколько установка загружена.
+          </p>
+          <p>
+            Система загружает файлы, разбирает данные по установкам, продуктам и дням, а затем автоматически проверяет шесть типов аномалий. Порог срабатывания каждой проверки можно настроить в боковой панели.
+          </p>
+        </div>
+      </div>
+
+      {/* === Как считаются проценты === */}
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-accent-purple/10 flex items-center justify-center">
+            <Calculator size={18} className="text-accent-purple" />
+          </div>
+          <h2 className="text-base font-semibold text-dark-text">Как считаются проценты</h2>
+        </div>
+        <p className="text-sm text-dark-muted mb-4">
+          Во всех таблицах и графиках рядом с процентами есть иконка <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-[10px] text-dark-muted">i</span> — наведите на неё, чтобы увидеть формулу.
+        </p>
+        <div className="space-y-4">
+          {formulas.map((f) => (
+            <div key={f.name} className="p-3 bg-dark-bg/50 border border-dark-border rounded-lg">
+              <div className="text-sm font-medium text-dark-text mb-1">{f.name}</div>
+              <div className="text-xs text-accent-blue font-mono mb-2">{f.formula}</div>
+              <p className="text-xs text-dark-muted mb-1">{f.explain}</p>
+              <p className="text-[11px] text-dark-muted/70">Где используется: {f.where}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* === Что помогает найти === */}
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-accent-green/10 flex items-center justify-center">
+            <Target size={18} className="text-accent-green" />
+          </div>
+          <h2 className="text-base font-semibold text-dark-text">Что помогает найти</h2>
+        </div>
+        <div className="space-y-3 text-sm text-dark-muted">
+          <div className="flex gap-3">
+            <span className="text-accent-red text-lg leading-none">1</span>
+            <div>
+              <span className="text-dark-text font-medium">Потери продукции внутри установок.</span> Если на входе 1000 тонн, а на выходе только 900 — куда делись 100 тонн? Небаланс покажет, в какие дни и на каких установках были самые большие потери.
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-accent-yellow text-lg leading-none">2</span>
+            <div>
+              <span className="text-dark-text font-medium">Недостоверные данные учёта.</span> Если прибор показал 500 тонн, а в отчёте записали 400 — кто-то корректировал данные на 20%. Расхождение выявит такие случаи по каждому продукту.
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-accent-blue text-lg leading-none">3</span>
+            <div>
+              <span className="text-dark-text font-medium">Нештатные режимы работы.</span> Нетипичные дни покажут, когда установка работала сильно не так, как обычно — может быть авария, пуск, останов или ошибка в данных.
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-dark-muted text-lg leading-none">4</span>
+            <div>
+              <span className="text-dark-text font-medium">Простои и их стоимость.</span> Система находит дни, когда установка не работала, группирует их в события и считает сокращение выпуска в тоннах — сколько продукции недовыпустили.
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-accent-green text-lg leading-none">5</span>
+            <div>
+              <span className="text-dark-text font-medium">Потери при передаче между установками.</span> Одна установка отдала продукт, а следующая получила меньше. Диаграмма потоков (Sankey) и межцеховой анализ покажут, где и сколько теряется.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* === Типы аномалий === */}
+      <h2 className="text-lg font-bold text-dark-text pt-2">Типы аномалий</h2>
       <div className="space-y-4">
         {methods.map((m) => {
           const Icon = m.icon
@@ -93,11 +228,12 @@ export default function HelpPage() {
         })}
       </div>
 
+      {/* === Цветовая шкала === */}
       <div className="bg-dark-card border border-dark-border rounded-xl p-5">
         <h2 className="text-base font-semibold text-dark-text mb-3">Цветовая шкала тепловой карты</h2>
         <div className="space-y-4">
           <div>
-            <div className="text-xs font-medium text-dark-muted mb-2">Загрузка / Выпуск (% от среднего за период)</div>
+            <div className="text-xs font-medium text-dark-muted mb-2">Загрузка / Выпуск (% от плана на день)</div>
             <div className="flex gap-0.5">
               {[
                 { pct: '0%', color: '#4c0519' },
@@ -120,7 +256,7 @@ export default function HelpPage() {
                 </div>
               ))}
             </div>
-            <div className="text-[10px] text-dark-muted mt-1">100% = средняя загрузка (без нулевых дней). Зелёный — норма. Фиолетовый — перегрузка.</div>
+            <div className="text-[10px] text-dark-muted mt-1">100% = план выполнен. Зелёный — норма. Красный — сильно ниже плана. Фиолетовый — перегрузка выше плана.</div>
           </div>
           <div>
             <div className="text-xs font-medium text-dark-muted mb-2">Дисбаланс (загрузка минус выпуск, % от загрузки)</div>
@@ -141,19 +277,80 @@ export default function HelpPage() {
             </div>
             <div className="text-[10px] text-dark-muted mt-1">Зелёный — небольшой дисбаланс (&lt;5%). Красный — большой (&gt;25%).</div>
           </div>
+          <div>
+            <div className="text-xs font-medium text-dark-muted mb-2">Расхождение по продуктам (|замер − согласовано| / замер)</div>
+            <div className="flex gap-0.5">
+              {[
+                { pct: '0–2%', color: '#064e3b' },
+                { pct: '2–5%', color: '#eab308' },
+                { pct: '5–15%', color: '#f59e0b' },
+                { pct: '15–25%', color: '#dc2626' },
+                { pct: '25%+', color: '#4c0519' },
+              ].map(s => (
+                <div key={s.pct} className="flex-1 text-center">
+                  <div className="h-6 rounded" style={{ backgroundColor: s.color }} />
+                  <div className="text-[9px] text-dark-muted mt-0.5">{s.pct}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-dark-muted mt-1">Зелёный — прибор и отчёт совпадают. Бордовый — корректировка больше 25%.</div>
+          </div>
         </div>
       </div>
 
-      <div className="p-4 bg-dark-card border border-dark-border rounded-xl">
-        <h2 className="text-sm font-semibold text-dark-text mb-2">Как пользоваться</h2>
-        <ul className="text-sm text-dark-muted space-y-1.5 list-disc list-inside">
-          <li>Загрузите файлы .xlsm на странице «Загрузка»</li>
-          <li>На странице «Обзор» — общая картина: KPI, карточки аномалий по типам, установки</li>
-          <li>Нажмите на карточку аномалии — раскроется список установок с этим типом проблемы</li>
-          <li>Внутри карточек установок — аккордеоны по каждому типу аномалий с выгрузкой в Excel</li>
-          <li>На странице «Потоки» — диаграмма Sankey: как продукция перемещается между установками</li>
-          <li>Пороги настраиваются в боковой панели слева — перетащите слайдер и нажмите «Сохранить»</li>
-        </ul>
+      {/* === Инструкция по использованию === */}
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-dark-text mb-4">Как пользоваться программой</h2>
+        <div className="space-y-4 text-sm text-dark-muted">
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">1. Загрузка данных</div>
+            <p>Откройте страницу «Загрузка» в левом меню. Перетащите файлы .xlsm (суточные отчёты установок) в область загрузки или нажмите кнопку выбора файлов. Можно загружать несколько файлов за разные месяцы — система объединит данные.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">2. Обзорная страница</div>
+            <p>После загрузки откройте «Обзор». Вверху — ключевые показатели: суммарный вход и выход продукции, среднее отклонение, количество аномалий и простоев.</p>
+            <p className="mt-1">Ниже — карточки аномалий по типам. Нажмите на карточку — раскроется список установок, где есть эта проблема. Внутри карточки установки нажмите на бейдж аномалии — откроется таблица с деталями по дням.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">3. Тепловые карты</div>
+            <p><span className="text-dark-text">Тепловая карта загрузки</span> — показывает все установки за выбранный период. Каждая ячейка = один день. Три строки: загрузка (% от плана), выпуск (% от плана), дисбаланс (% потерь). Переключатель «тонны / %» меняет отображение.</p>
+            <p className="mt-1"><span className="text-dark-text">Тепловая карта продуктов</span> — на странице установки. Каждая строка = продукт, каждый столбец = день. Показывает, на сколько процентов скорректировали прибор при согласовании. Можно фильтровать по продуктам через теги.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">4. Раскрытие деталей</div>
+            <p>В таблицах аномалий нажмите на строку с датой — раскроется подробная таблица по продуктам за этот день. Видно: какой продукт, сколько замерено, сколько согласовано, какая корректировка в тоннах и процентах.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">5. Диаграмма потоков (Sankey)</div>
+            <p>Страница «Потоки» показывает, как продукция движется между установками. Ширина полосы = объём продукта. Таблица потерь внизу — по каждому продукту, где есть расхождение между отдачей и приёмкой.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">6. Фильтрация по датам</div>
+            <p>В боковой панели слева выберите месяц из выпадающего списка или задайте произвольный диапазон дат. Фильтр применяется ко всем страницам одновременно.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">7. Настройка порогов</div>
+            <p>В боковой панели под фильтром дат — слайдеры порогов для каждого типа аномалий. Перетащите слайдер, чтобы изменить чувствительность, и нажмите «Сохранить». Меньше порог — больше срабатываний (строже контроль). Больше порог — меньше срабатываний (только крупные отклонения).</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">8. Выгрузка в Excel</div>
+            <p>Кнопка «Excel» есть в каждом аккордеоне аномалий и на обзорной странице. Выгрузка содержит все данные таблицы, включая раскрытие по продуктам. В Excel работает группировка строк (плюсики слева) — можно сворачивать и разворачивать детали.</p>
+          </div>
+
+          <div>
+            <div className="text-dark-text font-medium mb-1">9. Подсказки (i)</div>
+            <p>Рядом с процентами и показателями есть иконка <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-[10px]">i</span>. Наведите на неё курсор — появится подсказка с формулой расчёта.</p>
+          </div>
+
+        </div>
       </div>
     </div>
   )

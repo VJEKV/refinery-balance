@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 import { X } from 'lucide-react'
+import InfoTooltip from './InfoTooltip'
 
 const CELL_MIN_H = 25
 
@@ -147,7 +148,10 @@ export default function ReconHeatmap({ unitCode, direction, title, dateParams = 
   return (
     <div className="bg-dark-card border border-dark-border rounded-xl p-3 w-full" ref={containerRef}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-dark-text">{title}</h3>
+        <h3 className="text-sm font-semibold text-dark-text">
+          {title}
+          <InfoTooltip text="Расхождение: |замер − согласовано| / замер × 100%." />
+        </h3>
         <div className="flex rounded-lg border border-dark-border overflow-hidden">
           <button
             onClick={() => setMode('pct')}

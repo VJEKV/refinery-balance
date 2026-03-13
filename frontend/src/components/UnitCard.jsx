@@ -12,6 +12,7 @@ import api from '../api/client'
 import { useDateFilter } from '../hooks/useDateFilter'
 import * as XLSX from 'xlsx'
 import { downloadXlsx, exportSheet, fmtDate } from '../utils/excelExport'
+import InfoTooltip from './InfoTooltip'
 
 const methodMeta = {
   balance_closure: { label: 'Небаланс вход/выход', icon: AlertTriangle, color: 'text-accent-red' },
@@ -693,7 +694,7 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
                     <th className={`${thCls} text-xs text-right`}>Замер (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Согласов (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Корр. (т)</th>
-                    <th className={`${thCls} text-xs text-right`}>Корр. (%)</th>
+                    <th className={`${thCls} text-xs text-right`}>Корр. (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></th>
                     <th className={`${thCls} text-xs w-28`}>Масштаб</th>
                   </tr>
                 </thead>
@@ -795,7 +796,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                   <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход сырья изм (т)</SortTh>
                   <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход продукции изм (т)</SortTh>
                   <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
-                  <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)</SortTh>
+                  <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)<InfoTooltip text="(вход − выход) / вход × 100%" /></SortTh>
                 </>
               )}
               {isReconGap && (
@@ -803,11 +804,11 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                   <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Сырьё изм (т)</SortTh>
                   <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Сырьё согл (т)</SortTh>
                   <SortTh col="delta_input_tons" {...sp} className={`${thCls} text-right`}>Δ сырьё (т)</SortTh>
-                  <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)</SortTh>
+                  <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
                   <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Продукция изм (т)</SortTh>
                   <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Продукция согл (т)</SortTh>
                   <SortTh col="delta_output_tons" {...sp} className={`${thCls} text-right`}>Δ продукц (т)</SortTh>
-                  <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)</SortTh>
+                  <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
                 </>
               )}
               {isCrossUnit && (
@@ -818,7 +819,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                   <SortTh col="output_value" {...sp} className={`${thCls} text-right`}>Отдано (т)</SortTh>
                   <SortTh col="input_value" {...sp} className={`${thCls} text-right`}>Принято (т)</SortTh>
                   <SortTh col="_loss" {...sp} className={`${thCls} text-right`}>Потери (т)</SortTh>
-                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Δ%</SortTh>
+                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Δ%<InfoTooltip text="(отдано − принято) / отдано × 100%" /></SortTh>
                 </>
               )}
               {isSpc && (
@@ -826,7 +827,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                   <SortTh col="consumed" {...sp} className={`${thCls} text-right`}>Загрузка (т)</SortTh>
                   <SortTh col="produced" {...sp} className={`${thCls} text-right`}>Выпуск (т)</SortTh>
                   <SortTh col="mean" {...sp} className={`${thCls} text-right`}>Среднее (т)</SortTh>
-                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Отклонение (σ)</SortTh>
+                  <SortTh col="value" {...sp} className={`${thCls} text-right`}>Отклонение (σ)<InfoTooltip text="Число стандартных отклонений от среднего за период." /></SortTh>
                 </>
               )}
               {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (
@@ -931,7 +932,7 @@ function PlanBar({ label, pct, fact, plan, fmt }) {
   const color = pct >= 95 ? '#4ade80' : pct >= 80 ? '#fbbf24' : '#f87171'
   return (
     <div>
-      <div className="text-sm text-dark-muted mb-1">{label}</div>
+      <div className="text-sm text-dark-muted mb-1">{label}<InfoTooltip text="Факт / план × 100%." /></div>
       <div className="flex items-center gap-3">
         <div className="flex-1 h-14 bg-dark-border/50 rounded-full overflow-hidden relative">
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${barWidth}%`, backgroundColor: color }} />
@@ -968,11 +969,11 @@ function ProductTable({ title, titleColor, items, reconColor }) {
           <thead>
             <tr className="text-slate-300">
               <th className={`${thCls} text-left`}>Продукт</th>
-              <th className={`${thCls} text-right`}>Доля</th>
+              <th className={`${thCls} text-right`}>Доля<InfoTooltip text="Доля продукта от общего объёма по направлению." /></th>
               <th className={`${thCls} text-right`}>Замер (т)</th>
               <th className={`${thCls} text-right`}>Согл (т)</th>
               <th className={`${thCls} text-right`}>&Delta; (т)</th>
-              <th className={`${thCls} text-right`}>&Delta; (%)</th>
+              <th className={`${thCls} text-right`}>&Delta; (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></th>
             </tr>
           </thead>
           <tbody>

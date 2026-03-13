@@ -10,6 +10,7 @@ import { AlertTriangle, BarChart3, Activity, Clock, GitBranch, ChevronDown, Chev
 import * as XLSX from 'xlsx'
 import ExportDialog from '../components/ExportDialog'
 import { downloadXlsx, fmtDate } from '../utils/excelExport'
+import InfoTooltip from '../components/InfoTooltip'
 
 const methodConfig = {
   balance_closure: {
@@ -296,7 +297,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <KPICard label="Суммарный вход (согл)" value={data.total_in} unit="т" color="blue" />
         <KPICard label="Суммарный выход (согл)" value={data.total_out} unit="т" color="green" />
-        <KPICard label="Среднее отклонение" value={data.imbalance} unit="%" color={data.imbalance > 3 ? 'red' : 'yellow'} />
+        <KPICard label={<>Среднее отклонение<InfoTooltip text="Среднее (вход − выход) / вход × 100% по всем установкам." /></>} value={data.imbalance} unit="%" color={data.imbalance > 3 ? 'red' : 'yellow'} />
         <KPICard label="Всего аномалий" value={data.anomaly_count} color={data.anomaly_count > 0 ? 'red' : 'green'} />
         <KPICard label="Простои (уст-дни)" value={data.downtime_count} color={data.downtime_count > 0 ? 'yellow' : 'green'} />
       </div>
@@ -748,7 +749,7 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
                     <th className={`${thCls} text-xs text-right`}>Замер (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Согласов (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Корр. (т)</th>
-                    <th className={`${thCls} text-xs text-right`}>Корр. (%)</th>
+                    <th className={`${thCls} text-xs text-right`}>Корр. (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></th>
                     <th className={`${thCls} text-xs w-28`}>Масштаб</th>
                   </tr>
                 </thead>
@@ -851,7 +852,7 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                     <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход сырья изм (т)</SortTh>
                     <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход продукции изм (т)</SortTh>
                     <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
-                    <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)</SortTh>
+                    <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)<InfoTooltip text="(вход − выход) / вход × 100%" /></SortTh>
                   </>
                 )}
                 {isReconGap && (
@@ -859,11 +860,11 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                     <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Сырьё изм (т)</SortTh>
                     <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Сырьё согл (т)</SortTh>
                     <SortTh col="delta_input_tons" {...sp} className={`${thCls} text-right`}>Δ сырьё (т)</SortTh>
-                    <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)</SortTh>
+                    <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
                     <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Продукция изм (т)</SortTh>
                     <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Продукция согл (т)</SortTh>
                     <SortTh col="delta_output_tons" {...sp} className={`${thCls} text-right`}>Δ продукц (т)</SortTh>
-                    <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)</SortTh>
+                    <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
                   </>
                 )}
                 {isSpc && (
@@ -871,7 +872,7 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                     <SortTh col="consumed" {...sp} className={`${thCls} text-right`}>Загрузка (т)</SortTh>
                     <SortTh col="produced" {...sp} className={`${thCls} text-right`}>Выпуск (т)</SortTh>
                     <SortTh col="mean" {...sp} className={`${thCls} text-right`}>Среднее (т)</SortTh>
-                    <SortTh col="value" {...sp} className={`${thCls} text-right`}>Отклонение (σ)</SortTh>
+                    <SortTh col="value" {...sp} className={`${thCls} text-right`}>Отклонение (σ)<InfoTooltip text="Число стандартных отклонений от среднего за период." /></SortTh>
                   </>
                 )}
                 {isCrossUnit && (
@@ -882,7 +883,7 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                     <SortTh col="output_value" {...sp} className={`${thCls} text-right`}>Отдано (т)</SortTh>
                     <SortTh col="input_value" {...sp} className={`${thCls} text-right`}>Принято (т)</SortTh>
                     <SortTh col="_loss" {...sp} className={`${thCls} text-right`}>Потери (т)</SortTh>
-                    <SortTh col="value" {...sp} className={`${thCls} text-right`}>Δ%</SortTh>
+                    <SortTh col="value" {...sp} className={`${thCls} text-right`}>Δ%<InfoTooltip text="(отдано − принято) / отдано × 100%" /></SortTh>
                   </>
                 )}
                 {!isBalanceClosure && !isReconGap && !isSpc && !isCrossUnit && (

@@ -295,7 +295,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
         <div className="text-sm text-dark-muted">Файлов: {fileCount}</div>
         <div className="text-sm text-dark-muted">Установок: {unitCount}</div>
         {dateRange && <div className="text-sm text-dark-muted">Период: {dateRange}</div>}
-        <div className="text-xs text-dark-muted/50 pt-1">v1.5.0</div>
+        <div className="text-xs text-dark-muted/50 pt-1">v1.8.0</div>
       </div>
     </aside>
   )

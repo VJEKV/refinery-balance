@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="НПЗ Материальный Баланс",
     description="Аналитика аномалий нефтеперерабатывающего завода",
-    version="1.7.0",
+    version="1.8.0",
     lifespan=lifespan,
 )
 
