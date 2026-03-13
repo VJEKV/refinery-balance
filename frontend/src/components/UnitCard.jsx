@@ -86,13 +86,13 @@ function exportAnomaliesExcel(anomalies, unitName, method) {
   const sev = a => a.severity === 'critical' ? 'Критично' : 'Внимание'
   const rows = anomalies.map(a => {
     if (method === 'balance_closure') return {
-      'Дата': a.date, 'Вход замер (т)': a.input_measured, 'Выход замер (т)': a.output_measured,
+      'Дата': a.date, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
       'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
     }
     if (method === 'recon_gap') return {
-      'Дата': a.date, 'Замер сырьё (т)': a.input_measured, 'Согласов сырьё (т)': a.input_reconciled,
+      'Дата': a.date, 'Сырьё изм (т)': a.input_measured, 'Сырьё согл (т)': a.input_reconciled,
       'Δ сырьё (т)': a.delta_input_tons, 'Δ сырьё (%)': a.delta_input_pct,
-      'Замер продукц (т)': a.output_measured, 'Согласов продукц (т)': a.output_reconciled,
+      'Продукция изм (т)': a.output_measured, 'Продукция согл (т)': a.output_reconciled,
       'Δ продукц (т)': a.delta_output_tons, 'Δ продукц (%)': a.delta_output_pct, 'Уровень': sev(a),
     }
     if (method === 'spc') return {
@@ -447,9 +447,10 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
   )
 
   const isBalance = method === 'balance_closure'
+  const isRecon = method === 'recon_gap'
   const isSpc = method === 'spc'
 
-  const renderSection = (items, label, color) => items.length > 0 && (
+  const renderSection = (items, label, color, isInput) => items.length > 0 && (
     <>
       <tr>
         <td colSpan={colSpan} className="px-4 pt-2 pb-1">
@@ -458,21 +459,45 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
       </tr>
       {items.map((p, j) => {
         const isHigh = p.delta_pct > 5
+        const fmt = v => (v ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
             <td className={`${tdCls} text-slate-200 pl-6`} title={p.product}>↳ {p.product}</td>
-            {isSpc ? (
+            {isBalance && (
               <>
-                <td className={`${tdCls} text-right tabular-nums text-slate-200`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                <td colSpan={colSpan - 2} className={tdCls} />
+                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{isInput ? fmt(p.measured) : ''}</td>
+                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{!isInput ? fmt(p.measured) : ''}</td>
+                <td className={tdCls} />
+                <td className={tdCls} />
               </>
-            ) : (
+            )}
+            {isRecon && (
               <>
-                <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{p.measured.toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(p.reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
-                {colSpan > 5 && <td colSpan={colSpan - 5} className={tdCls} />}
+                {isInput ? (
+                  <>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                    <td colSpan={4} className={tdCls} />
+                  </>
+                ) : (
+                  <>
+                    <td colSpan={4} className={tdCls} />
+                    <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
+                    <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                  </>
+                )}
+              </>
+            )}
+            {isSpc && (
+              <>
+                <td className={`${tdCls} text-right tabular-nums text-slate-200`}>{isInput ? fmt(p.measured) : ''}</td>
+                <td className={`${tdCls} text-right tabular-nums text-slate-200`}>{!isInput ? fmt(p.measured) : ''}</td>
+                <td className={tdCls} />
+                <td className={tdCls} />
               </>
             )}
           </tr>
@@ -496,8 +521,8 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
           </div>
         </td>
       </tr>
-      {renderSection(inputs, 'Сырьё', 'text-accent-blue')}
-      {renderSection(outputs, 'Продукция', 'text-accent-green')}
+      {renderSection(inputs, 'Сырьё', 'text-accent-blue', true)}
+      {renderSection(outputs, 'Продукция', 'text-accent-green', false)}
       <tr><td colSpan={colSpan} className="bg-[#0a1225] h-1 border-b border-accent-blue/20" /></tr>
     </>
   )
@@ -547,20 +572,20 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
               <SortTh col="date" {...sp} className={thCls}>Дата</SortTh>
               {isBalanceClosure && (
                 <>
-                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход замер (т)</SortTh>
-                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход замер (т)</SortTh>
+                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход сырья изм (т)</SortTh>
+                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход продукции изм (т)</SortTh>
                   <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
                   <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)</SortTh>
                 </>
               )}
               {isReconGap && (
                 <>
-                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Замер сырьё (т)</SortTh>
-                  <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Согласов сырьё (т)</SortTh>
+                  <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Сырьё изм (т)</SortTh>
+                  <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Сырьё согл (т)</SortTh>
                   <SortTh col="delta_input_tons" {...sp} className={`${thCls} text-right`}>Δ сырьё (т)</SortTh>
                   <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)</SortTh>
-                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Замер продукц (т)</SortTh>
-                  <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Согласов продукц (т)</SortTh>
+                  <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Продукция изм (т)</SortTh>
+                  <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Продукция согл (т)</SortTh>
                   <SortTh col="delta_output_tons" {...sp} className={`${thCls} text-right`}>Δ продукц (т)</SortTh>
                   <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)</SortTh>
                 </>
