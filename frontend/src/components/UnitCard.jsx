@@ -194,10 +194,11 @@ async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
     ws['!rows'] = [{}] // header
     for (let i = 0; i < rowOutlines.length; i++) {
       ws['!rows'].push({
-        outlineLevel: rowOutlines[i],
+        level: rowOutlines[i],
         hidden: rowOutlines[i] > 0,
       })
     }
+    ws['!outline'] = { above: true }
   }
 
   const wb = XLSX.utils.book_new()

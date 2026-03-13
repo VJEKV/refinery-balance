@@ -220,10 +220,11 @@ async function doExportDowntime(anomalies) {
   ws['!rows'] = [{}] // header row
   for (let i = 0; i < rowOutlines.length; i++) {
     ws['!rows'].push({
-      outlineLevel: rowOutlines[i],
+      level: rowOutlines[i],
       hidden: rowOutlines[i] > 0,
     })
   }
+  ws['!outline'] = { above: true }
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Простои')
@@ -349,10 +350,11 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
     ws['!rows'] = [{}] // header row
     for (let i = 0; i < rowOutlines.length; i++) {
       ws['!rows'].push({
-        outlineLevel: rowOutlines[i],
+        level: rowOutlines[i],
         hidden: rowOutlines[i] > 0,
       })
     }
+    ws['!outline'] = { above: true }
   }
 
   const wb = XLSX.utils.book_new()
