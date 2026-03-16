@@ -260,7 +260,8 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
     if (isBalance) {
       row = {
         'Дата': fmtDate(a.date), 'Установка': a.unit_name || '',
-        'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Вход сырья изм (т)': a.input_measured, 'Вход сырья согл (т)': a.input_reconciled,
+        'Выход продукции изм (т)': a.output_measured, 'Выход продукции согл (т)': a.output_reconciled,
         'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
       }
     } else if (isRecon) {
@@ -306,7 +307,9 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
               pRow = {
                 'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
                 'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Вход сырья согл (т)': direction === 'Сырьё' ? p.reconciled : null,
                 'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Выход продукции согл (т)': direction === 'Продукция' ? p.reconciled : null,
                 'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct, 'Уровень': '',
               }
             } else if (isRecon) {
@@ -325,7 +328,8 @@ async function doExport(anomalies, method, methodLabel, includeProducts) {
             } else if (isSpc) {
               pRow = {
                 'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
-                'Загрузка (т)': p.measured, 'Выпуск (т)': null,
+                'Загрузка (т)': direction === 'Сырьё' ? p.measured : null,
+                'Выпуск (т)': direction === 'Продукция' ? p.measured : null,
                 'Среднее (т)': null, 'Отклонение (σ)': null, 'Уровень': '',
               }
             }

@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="НПЗ Материальный Баланс",
     description="Аналитика аномалий нефтеперерабатывающего завода",
-    version="1.8.0",
+    version="1.8.1",
     lifespan=lifespan,
 )
 
@@ -39,7 +39,7 @@ app.include_router(settings.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "НПЗ Материальный Баланс", "version": "1.7.0"}
+    return {"status": "ok", "app": "НПЗ Материальный Баланс", "version": "1.8.1"}
 
 
 # Production: раздача собранного React из frontend/dist

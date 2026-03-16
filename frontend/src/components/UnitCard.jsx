@@ -112,7 +112,9 @@ async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
     let row
     if (isBalance) {
       row = {
-        'Дата': fmtDate(a.date), 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Дата': fmtDate(a.date),
+        'Вход сырья изм (т)': a.input_measured, 'Вход сырья согл (т)': a.input_reconciled,
+        'Выход продукции изм (т)': a.output_measured, 'Выход продукции согл (т)': a.output_reconciled,
         'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
       }
     } else if (isRecon) {
@@ -149,14 +151,18 @@ async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
             let pRow
             if (isBalance) {
               pRow = {
-                'Дата': '', 'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Дата': `  ${direction}: ${p.product}`,
+                'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Вход сырья согл (т)': direction === 'Сырьё' ? p.reconciled : null,
                 'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Выход продукции согл (т)': direction === 'Продукция' ? p.reconciled : null,
                 'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct,
-                'Уровень': `  ${direction}: ${p.product}`,
+                'Уровень': '',
               }
             } else if (isRecon) {
               pRow = {
-                'Дата': '', 'Сырьё изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Дата': `  ${direction}: ${p.product}`,
+                'Сырьё изм (т)': direction === 'Сырьё' ? p.measured : null,
                 'Сырьё согл (т)': direction === 'Сырьё' ? p.reconciled : null,
                 'Δ сырьё (т)': direction === 'Сырьё' ? p.delta_tons : null,
                 'Δ сырьё (%)': direction === 'Сырьё' ? p.delta_pct : null,
@@ -164,14 +170,15 @@ async function exportAnomaliesExcel(anomalies, unitName, method, unitCode) {
                 'Продукция согл (т)': direction === 'Продукция' ? p.reconciled : null,
                 'Δ продукц (т)': direction === 'Продукция' ? p.delta_tons : null,
                 'Δ продукц (%)': direction === 'Продукция' ? p.delta_pct : null,
-                'Уровень': `  ${direction}: ${p.product}`,
+                'Уровень': '',
               }
             } else if (isSpc) {
               pRow = {
-                'Дата': '', 'Загрузка (т)': direction === 'Сырьё' ? p.measured : null,
+                'Дата': `  ${direction}: ${p.product}`,
+                'Загрузка (т)': direction === 'Сырьё' ? p.measured : null,
                 'Выпуск (т)': direction === 'Продукция' ? p.measured : null,
                 'Среднее (т)': null, 'Отклонение (σ)': null,
-                'Уровень': `  ${direction}: ${p.product}`,
+                'Уровень': '',
               }
             }
             if (pRow) {
@@ -761,7 +768,7 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
   const isCrossUnit = method === 'cross_unit'
 
   const reconColCount = 9 // date + 8 recon cols
-  const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 6 : isSpc ? 6 : isCrossUnit ? 8 : 5
+  const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 8 : isSpc ? 6 : isCrossUnit ? 8 : 5
 
   const getVal = (item, col) => {
     if (col === '_loss') return (item.output_value ?? 0) - (item.input_value ?? 0)
@@ -794,7 +801,9 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
               {isBalanceClosure && (
                 <>
                   <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход сырья изм (т)</SortTh>
+                  <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Вход сырья согл (т)</SortTh>
                   <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход продукции изм (т)</SortTh>
+                  <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Выход продукции согл (т)</SortTh>
                   <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
                   <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)<InfoTooltip text="(вход − выход) / вход × 100%" /></SortTh>
                 </>
@@ -857,7 +866,9 @@ function AnomalyMethodSection({ method, anomalies, unitName, unitCode }) {
                     {isBalanceClosure && (
                       <>
                         <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                        <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
                       </>

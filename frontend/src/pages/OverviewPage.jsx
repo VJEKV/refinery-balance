@@ -103,7 +103,9 @@ async function exportOverviewExcel(anomalies, methodKey) {
     let row
     if (isBalance) {
       row = {
-        'Дата': fmtDate(a.date), 'Установка': u, 'Вход сырья изм (т)': a.input_measured, 'Выход продукции изм (т)': a.output_measured,
+        'Дата': fmtDate(a.date), 'Установка': u,
+        'Вход сырья изм (т)': a.input_measured, 'Вход сырья согл (т)': a.input_reconciled,
+        'Выход продукции изм (т)': a.output_measured, 'Выход продукции согл (т)': a.output_reconciled,
         'Небаланс (т)': a.delta_tons, 'Небаланс (%)': a.delta_pct, 'Уровень': sev(a),
       }
     } else if (isRecon) {
@@ -143,7 +145,9 @@ async function exportOverviewExcel(anomalies, methodKey) {
               pRow = {
                 'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
                 'Вход сырья изм (т)': direction === 'Сырьё' ? p.measured : null,
+                'Вход сырья согл (т)': direction === 'Сырьё' ? p.reconciled : null,
                 'Выход продукции изм (т)': direction === 'Продукция' ? p.measured : null,
+                'Выход продукции согл (т)': direction === 'Продукция' ? p.reconciled : null,
                 'Небаланс (т)': p.delta_tons, 'Небаланс (%)': p.delta_pct, 'Уровень': '',
               }
             } else if (isRecon) {
@@ -162,7 +166,8 @@ async function exportOverviewExcel(anomalies, methodKey) {
             } else if (isSpc) {
               pRow = {
                 'Дата': '', 'Установка': `  ${direction}: ${p.product}`,
-                'Загрузка (т)': p.measured, 'Выпуск (т)': null,
+                'Загрузка (т)': direction === 'Сырьё' ? p.measured : null,
+                'Выпуск (т)': direction === 'Продукция' ? p.measured : null,
                 'Среднее (т)': null, 'Отклонение (σ)': null, 'Уровень': '',
               }
             }
@@ -816,7 +821,7 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
   const Icon = cfg?.icon
 
   const reconColCount = 9
-  const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 6 : isSpc ? 6 : isCrossUnit ? 8 : 5
+  const totalCols = isReconGap ? reconColCount + 1 : isBalanceClosure ? 8 : isSpc ? 6 : isCrossUnit ? 8 : 5
 
   const getVal = (item, col) => {
     if (col === '_loss') return (item.output_value ?? 0) - (item.input_value ?? 0)
@@ -850,7 +855,9 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                 {isBalanceClosure && (
                   <>
                     <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Вход сырья изм (т)</SortTh>
+                    <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Вход сырья согл (т)</SortTh>
                     <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Выход продукции изм (т)</SortTh>
+                    <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Выход продукции согл (т)</SortTh>
                     <SortTh col="delta_tons" {...sp} className={`${thCls} text-right`}>Небаланс (т)</SortTh>
                     <SortTh col="delta_pct" {...sp} className={`${thCls} text-right`}>Небаланс (%)<InfoTooltip text="(вход − выход) / вход × 100%" /></SortTh>
                   </>
@@ -913,7 +920,9 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                       {isBalanceClosure && (
                         <>
                           <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
                         </>
