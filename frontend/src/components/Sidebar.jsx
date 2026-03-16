@@ -45,7 +45,7 @@ const methodConfig = [
 
 export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', availableMonths = [] }) {
   const queryClient = useQueryClient()
-  const { selectedMonth, selectMonth, selectAll, dateFrom, dateTo, setDateFrom, setDateTo, MONTH_NAMES } = useDateFilter()
+  const { selectedMonths, toggleMonth, selectAll, dateFrom, dateTo, setDateFrom, setDateTo, MONTH_NAMES } = useDateFilter()
 
   const [values, setValues] = useState({})
   const [expandedMethod, setExpandedMethod] = useState(null)
@@ -90,7 +90,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
     setValues(v => ({ ...v, [key]: parseFloat(val) }))
   }
 
-  const selectedMonthLabel = selectedMonth !== null ? MONTH_NAMES[selectedMonth] : null
+  const selectedMonthLabels = [...selectedMonths].sort((a, b) => a - b).map(i => MONTH_NAMES[i])
 
   return (
     <aside className="w-[280px] bg-[#080e20] border-r border-dark-border flex flex-col shrink-0 overflow-y-auto overflow-x-hidden">
@@ -142,7 +142,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
           >
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-dark-muted" />
-              <span>{selectedMonthLabel || 'Все месяцы'}</span>
+              <span>{selectedMonthLabels.length > 0 ? selectedMonthLabels.join(', ') : 'Все месяцы'}</span>
             </div>
             <ChevronDown size={14} className={`text-dark-muted transition-transform ${monthDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -152,7 +152,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
               <button
                 onClick={() => { selectAll(); setMonthDropdownOpen(false) }}
                 className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
-                  selectedMonth === null && !dateFrom
+                  selectedMonths.size === 0 && !dateFrom
                     ? 'bg-accent-blue/15 text-accent-blue'
                     : 'text-dark-muted hover:text-dark-text hover:bg-white/5'
                 }`}
@@ -161,20 +161,21 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
               </button>
               {MONTH_NAMES.map((m, i) => {
                 const hasData = availableMonths.includes(i + 1)
+                const isSelected = selectedMonths.has(i)
                 return (
                   <button
                     key={i}
-                    onClick={() => { if (hasData) { selectMonth(i); setMonthDropdownOpen(false) } }}
+                    onClick={() => { if (hasData) toggleMonth(i) }}
                     disabled={!hasData}
                     className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
-                      selectedMonth === i
+                      isSelected
                         ? 'bg-accent-blue/15 text-accent-blue'
                         : hasData
                           ? 'text-dark-muted hover:text-dark-text hover:bg-white/5'
                           : 'text-dark-muted/30 cursor-not-allowed'
                     }`}
                   >
-                    {m}{!hasData && ' (нет данных)'}
+                    {isSelected ? '✓ ' : ''}{m}{!hasData && ' (нет данных)'}
                   </button>
                 )
               })}
@@ -182,18 +183,28 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
           )}
         </div>
 
-        {/* Selected month tag */}
-        {selectedMonthLabel && (
-          <div className="flex gap-1 mb-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue/15 text-accent-blue rounded text-xs">
-              {selectedMonthLabel}
+        {/* Selected month tags */}
+        {selectedMonths.size > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {[...selectedMonths].sort((a, b) => a - b).map(i => (
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue/15 text-accent-blue rounded text-xs">
+                {MONTH_NAMES[i]}
+                <button
+                  onClick={() => toggleMonth(i)}
+                  className="hover:text-white transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+            {selectedMonths.size > 1 && (
               <button
                 onClick={() => selectAll()}
-                className="hover:text-white transition-colors"
+                className="px-2 py-0.5 text-dark-muted hover:text-dark-text rounded text-xs transition-colors"
               >
-                <X size={12} />
+                Сбросить
               </button>
-            </span>
+            )}
           </div>
         )}
 

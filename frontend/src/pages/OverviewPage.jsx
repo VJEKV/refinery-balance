@@ -242,19 +242,22 @@ export default function OverviewPage() {
   const [infoOpen, setInfoOpen] = useState(null) // which method's info panel is open
   const [exportDialog, setExportDialog] = useState({ open: false, method: null })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['overview', dateParams],
     queryFn: () => api.get('/analytics/overview', { params: dateParams }).then(r => r.data),
+    placeholderData: (prev) => prev,
   })
 
   const { data: anomalies } = useQuery({
     queryKey: ['anomalies', dateParams],
     queryFn: () => api.get('/anomalies', { params: dateParams }).then(r => r.data),
+    placeholderData: (prev) => prev,
   })
 
   const { data: summary } = useQuery({
     queryKey: ['anomalySummary', dateParams],
     queryFn: () => api.get('/anomalies/summary', { params: dateParams }).then(r => r.data),
+    placeholderData: (prev) => prev,
   })
 
   // Group anomalies by method -> unit
@@ -270,7 +273,7 @@ export default function OverviewPage() {
     return tree
   }, [anomalies, data])
 
-  if (isLoading) return <div className="text-dark-muted">Загрузка...</div>
+  if (isLoading && !data) return <div className="text-dark-muted">Загрузка...</div>
   if (!data) return <div className="text-dark-muted">Нет данных. Загрузите файл .xlsm</div>
 
   const toggleMethod = (key) => {
@@ -297,7 +300,7 @@ export default function OverviewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
       {/* KPI row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <KPICard label="Суммарный вход (согл)" value={data.total_in} unit="т" color="blue" />

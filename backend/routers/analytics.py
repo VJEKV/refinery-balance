@@ -25,10 +25,11 @@ def overview(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
     thresholds = _get_thresholds()
     all_dates = store.dates
-    has_filter = date_from or date_to or (month is not None)
+    has_filter = date_from or date_to or (month is not None) or months
 
     empty_response = {
         "total_in": 0, "total_out": 0, "imbalance": 0,
@@ -41,7 +42,7 @@ def overview(
         return empty_response
 
     if has_filter:
-        filtered_dates = store.filter_dates(date_from, date_to, month)
+        filtered_dates = store.filter_dates(date_from, date_to, month, months)
         if not filtered_dates:
             return empty_response
         target_dates = filtered_dates
@@ -187,11 +188,12 @@ def heatmap(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
     """Daily consumed/produced for all units — for heatmap visualization."""
-    has_filter = date_from or date_to or (month is not None)
+    has_filter = date_from or date_to or (month is not None) or months
     if has_filter:
-        filtered_dates = store.filter_dates(date_from, date_to, month)
+        filtered_dates = store.filter_dates(date_from, date_to, month, months)
         target_dates = filtered_dates if filtered_dates else []
     else:
         target_dates = store.dates
@@ -245,6 +247,7 @@ def product_heatmap(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
     """Per-product measured vs reconciled matrix for heatmap."""
     u = store.get_unit(unit)
@@ -254,9 +257,9 @@ def product_heatmap(
         raise HTTPException(400, "direction must be 'inputs' or 'outputs'")
 
     unit_dates = u["dates"]
-    has_filter = date_from or date_to or (month is not None)
+    has_filter = date_from or date_to or (month is not None) or months
     if has_filter:
-        filtered = store.filter_dates(date_from, date_to, month)
+        filtered = store.filter_dates(date_from, date_to, month, months)
         target_dates = [d for d in filtered if d in unit_dates]
     else:
         target_dates = unit_dates

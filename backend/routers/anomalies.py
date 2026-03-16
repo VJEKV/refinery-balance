@@ -19,7 +19,7 @@ def _get_thresholds():
     return DEFAULT_THRESHOLDS.copy()
 
 
-def _collect_all_anomalies(date_from=None, date_to=None, month=None):
+def _collect_all_anomalies(date_from=None, date_to=None, month=None, months=None):
     thresholds = _get_thresholds()
     all_anomalies = []
     for code, unit_info in store.units.items():
@@ -32,8 +32,8 @@ def _collect_all_anomalies(date_from=None, date_to=None, month=None):
     all_anomalies.extend(cross)
 
     # Apply date filtering
-    if date_from or date_to or month:
-        filtered_dates = store.filter_dates(date_from, date_to, month)
+    if date_from or date_to or month or months:
+        filtered_dates = store.filter_dates(date_from, date_to, month, months)
         date_strs = {d.isoformat() for d in filtered_dates}
         all_anomalies = [a for a in all_anomalies if a["date"] in date_strs]
 
@@ -49,8 +49,9 @@ def list_anomalies(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
-    anomalies = _collect_all_anomalies(date_from, date_to, month)
+    anomalies = _collect_all_anomalies(date_from, date_to, month, months)
     if unit:
         anomalies = [a for a in anomalies if a.get("unit") == unit]
     if method:
@@ -88,12 +89,13 @@ def downtime_details(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
     """Расширенная аналитика простоев: события с началом, концом, днями, обоснованием."""
     thresholds = _get_thresholds()
-    has_filter = date_from or date_to or (month is not None)
+    has_filter = date_from or date_to or (month is not None) or months
     if has_filter:
-        filtered_dates = store.filter_dates(date_from, date_to, month)
+        filtered_dates = store.filter_dates(date_from, date_to, month, months)
         target_dates = filtered_dates if filtered_dates else []
     else:
         target_dates = store.dates

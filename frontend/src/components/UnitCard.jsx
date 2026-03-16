@@ -225,12 +225,14 @@ export default function UnitCard({ unit, anomalies = [], activeMethod = null }) 
     queryKey: ['unit', unit.code, dateParams],
     queryFn: () => api.get(`/units/${encodeURIComponent(unit.code)}`, { params: dateParams }).then(r => r.data),
     enabled: expanded,
+    placeholderData: (prev) => prev,
   })
 
   const { data: downtimeData } = useQuery({
     queryKey: ['downtimeUnit', unit.code, dateParams],
     queryFn: () => api.get('/anomalies/downtime-details', { params: { unit: unit.code, ...dateParams } }).then(r => r.data),
     enabled: openSections.has('downtime'),
+    placeholderData: (prev) => prev,
   })
 
   const unitAnomalies = useMemo(() =>

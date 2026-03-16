@@ -32,6 +32,7 @@ def get_unit(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     month: Optional[int] = None,
+    months: Optional[str] = None,
 ):
     unit = store.get_unit(code)
     if not unit:
@@ -42,9 +43,9 @@ def get_unit(
     data = unit["data"]
 
     # Apply date filter
-    has_filter = date_from or date_to or (month is not None)
+    has_filter = date_from or date_to or (month is not None) or months
     if has_filter:
-        filtered = store.filter_dates(date_from, date_to, month)
+        filtered = store.filter_dates(date_from, date_to, month, months)
         dates = [d for d in filtered if d in all_unit_dates]
     else:
         dates = all_unit_dates

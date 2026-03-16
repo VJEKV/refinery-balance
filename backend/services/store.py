@@ -251,11 +251,18 @@ class DataStore:
         return sorted(set(d.month for d in self.dates))
 
     def filter_dates(self, date_from: Optional[str] = None, date_to: Optional[str] = None,
-                     month: Optional[int] = None) -> List[date]:
-        """Filter dates by range or month. Returns filtered date list."""
+                     month: Optional[int] = None, months: Optional[str] = None) -> List[date]:
+        """Filter dates by range, single month, or comma-separated months. Returns sorted filtered date list."""
         from datetime import datetime
         filtered = list(self.dates)
-        if month is not None and 1 <= month <= 12:
+        if months:
+            # Multiple months: "1,3,5" -> filter by month in {1, 3, 5}
+            try:
+                month_set = {int(m.strip()) for m in months.split(',') if m.strip()}
+                filtered = [d for d in filtered if d.month in month_set]
+            except ValueError:
+                pass
+        elif month is not None and 1 <= month <= 12:
             filtered = [d for d in filtered if d.month == month]
         if date_from:
             try:
