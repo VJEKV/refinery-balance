@@ -117,13 +117,15 @@ def downtime_details(
         consumed = data["summary"]["consumed"]["measured"]
         produced = data["summary"]["produced"]["measured"]
 
-        # Средняя выработка за рабочие дни
+        # Норма выработки = 75-й перцентиль рабочих дней (без простойных)
         working_consumed = [consumed[i] for i, d in enumerate(unit_dates)
                            if i < len(consumed) and consumed[i] >= ABS_MIN]
         working_produced = [produced[i] for i, d in enumerate(unit_dates)
                            if i < len(produced) and produced[i] >= ABS_MIN]
-        avg_consumed = float(np.mean(working_consumed)) if working_consumed else 0
-        avg_produced = float(np.mean(working_produced)) if working_produced else 0
+        avg_consumed = float(np.percentile(working_consumed, 75)) if working_consumed else 0
+        avg_produced = float(np.percentile(working_produced, 75)) if working_produced else 0
+        # Порог: снижение на downtime_pct% от нормы
+        low_threshold = avg_consumed * (100 - downtime_pct) / 100
 
         day_events = []
         for i, d in enumerate(unit_dates):
@@ -135,7 +137,7 @@ def downtime_details(
             p = produced[i] if i < len(produced) else 0
 
             is_full_stop = c < ABS_MIN and p < ABS_MIN
-            is_low = not is_full_stop and avg_consumed > 0 and c < avg_consumed * downtime_pct / 100
+            is_low = not is_full_stop and avg_consumed > 0 and c < low_threshold
 
             if is_full_stop or is_low:
                 load_pct = round(c / avg_consumed * 100, 1) if avg_consumed > 0 else 0

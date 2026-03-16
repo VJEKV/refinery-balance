@@ -42,7 +42,7 @@ const methods = [
     color: 'text-dark-muted',
     bg: 'bg-white/5',
     name: 'Простой',
-    description: 'Загрузка ниже порога от среднего. Внимание — ниже порога, Критично — ниже порога/2. Полный простой (<1 т на входе и выходе) всегда Критично. Пример: порог 10% → Внимание при <10%, Критично при <5%.',
+    description: 'Снижение загрузки относительно нормы (75-й перцентиль рабочих дней). Внимание — снижение больше порога, Критично — снижение больше порога ×2. Полный простой (<1 т на входе и выходе) всегда Критично. Пример: порог 10% → Внимание при снижении >10%, Критично при снижении >20%.',
     risk: 'Потеря выработки, срыв плана, простой связанных установок.',
     check: 'Акты остановки/пуска, заявки на ремонт, графики ТО, причины ограничения загрузки.',
   },
@@ -218,9 +218,9 @@ export default function HelpPage() {
                 </tr>
                 <tr>
                   <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Простой</td>
-                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&lt; порог %</td>
-                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&lt; порог/2 %</td>
-                  <td className="px-3 py-1.5 border border-slate-600/70">10% → Внимание &lt;10%, Критично &lt;5%</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">снижение &gt; порог</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">снижение &gt; порог ×2</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">10% → Внимание при снижении &gt;10%, Критично &gt;20%</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Межцеховой</td>
@@ -234,6 +234,24 @@ export default function HelpPage() {
           <p>
             <span className="text-dark-text font-medium">Исключение:</span> полный простой (загрузка и выпуск &lt; 1 тонны) всегда считается критичным, независимо от порога.
           </p>
+          <div className="p-3 bg-white/5 border border-dark-border rounded-lg mt-2">
+            <div className="text-dark-text font-medium mb-2">Как работает детекция простоев</div>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              <li><span className="text-dark-text">Норма</span> — 75-й перцентиль загрузки за рабочие дни (дни с загрузкой &ge; 1 т). Перцентиль устойчив к выбросам и не занижается простойными днями.</li>
+              <li><span className="text-accent-yellow">Внимание</span> — загрузка упала более чем на порог% от нормы. При пороге 10%: загрузка &lt; 90% от нормы.</li>
+              <li><span className="text-accent-red">Критично</span> — загрузка упала более чем на порог×2% от нормы. При пороге 10%: загрузка &lt; 80% от нормы.</li>
+              <li><span className="text-accent-red">Полный простой</span> — вход и выход &lt; 1 тонны. Всегда критично.</li>
+            </ul>
+            <div className="mt-2 text-xs text-dark-muted">
+              <span className="text-dark-text font-medium">Пример:</span> норма установки = 150 т/сут, порог = 10%.
+              Порог «Внимание» = 150 × 0.90 = 135 т. Порог «Критично» = 150 × 0.80 = 120 т.
+              Загрузка 100 т → снижение 33% → <span className="text-accent-red">Критично</span>.
+              Загрузка 140 т → снижение 7% → норма.
+            </div>
+            <div className="mt-2 text-xs text-dark-muted">
+              <span className="text-dark-text font-medium">Группировка:</span> последовательные дни простоя объединяются в события. Для каждого события система считает длительность (дни и часы), сокращение выпуска в тоннах и % загрузки.
+            </div>
+          </div>
           <p>
             Пороги настраиваются в боковой панели слева (слайдеры). Меньше порог — больше срабатываний (строже контроль). Больше порог — меньше срабатываний (только крупные отклонения).
           </p>

@@ -247,7 +247,7 @@ class DataStore:
                 filtered = [d for d in filtered if d <= dt]
             except ValueError:
                 pass
-        return filtered
+        return sorted(filtered)
 
     def get_unit_series(self, code: str) -> Optional[Dict]:
         """Return full time-series for a unit (all days)."""

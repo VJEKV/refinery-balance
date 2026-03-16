@@ -283,7 +283,7 @@ export default function HeatmapChart() {
           }}
         >
           <div className="font-semibold">{tooltip.unitName}</div>
-          <div className="text-gray-500">{new Date(tooltip.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} / {tooltip.rowType}</div>
+          <div className="text-gray-500">{tooltip.date.split('-').reverse().join('.')} / {tooltip.rowType}</div>
           <div className="mt-1">Факт загрузка: <span className="font-medium">{fmtTons(tooltip.consumed)} т</span> ({Math.round(tooltip.cPct)}% от плана)</div>
           <div>Факт выпуск: <span className="font-medium">{fmtTons(tooltip.produced)} т</span> ({Math.round(tooltip.pPct)}% от плана)</div>
           {tooltip.planC > 0 && <div className="text-gray-500">План загрузка: {fmtTons(tooltip.planC)} т/день</div>}

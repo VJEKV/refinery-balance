@@ -193,17 +193,21 @@ def cusum(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
 
 def downtime(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
     """4.5 Простои.
-    Единая формула: warn = загрузка < порог% от среднего, critical = < порог/2%.
+    Формула: warn = загрузка упала более чем на порог% от нормы,
+    critical = упала более чем на порог×2% от нормы.
     Полный простой (< 1 т) всегда critical.
+    Норма = 75-й перцентиль рабочих дней (исключая простойные).
     """
     results = []
     downtime_pct = thresholds.get("downtime_pct", 10.0)
-    critical_pct = downtime_pct / 2
     ABS_MIN = 1.0
     consumed = unit_data["summary"]["consumed"]["measured"]
     produced = unit_data["summary"]["produced"]["measured"]
     significant = [v for v in consumed if v >= ABS_MIN]
-    mu = float(np.mean(significant)) if significant else 0
+    mu = float(np.percentile(significant, 75)) if significant else 0
+    # Пороги: warn = снижение на downtime_pct%, critical = снижение на downtime_pct*2%
+    warn_threshold = mu * (100 - downtime_pct) / 100       # например 90% от нормы
+    critical_threshold = mu * (100 - downtime_pct * 2) / 100  # например 80% от нормы
     for i, d in enumerate(dates):
         if i >= len(consumed):
             break
@@ -219,22 +223,24 @@ def downtime(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]
                 "threshold": ABS_MIN,
                 "severity": "critical",
             })
-        elif mu > 0 and c < mu * critical_pct / 100:
+        elif mu > 0 and c < critical_threshold:
+            drop_pct = round((1 - c / mu) * 100, 1)
             results.append({
                 "date": d.isoformat(),
                 "method": "downtime",
-                "description": f"Простой: загрузка {c:.0f} т < {critical_pct:.0f}% от среднего ({mu:.0f} т)",
+                "description": f"Простой: загрузка {c:.0f} т — снижение {drop_pct}% от нормы ({mu:.0f} т)",
                 "value": round(c, 2),
-                "threshold": round(mu * downtime_pct / 100, 2),
+                "threshold": round(critical_threshold, 2),
                 "severity": "critical",
             })
-        elif mu > 0 and c < mu * downtime_pct / 100:
+        elif mu > 0 and c < warn_threshold:
+            drop_pct = round((1 - c / mu) * 100, 1)
             results.append({
                 "date": d.isoformat(),
                 "method": "downtime",
-                "description": f"Сниженная загрузка: {c:.0f} т < {downtime_pct}% от среднего ({mu:.0f} т)",
+                "description": f"Сниженная загрузка: {c:.0f} т — снижение {drop_pct}% от нормы ({mu:.0f} т)",
                 "value": round(c, 2),
-                "threshold": round(mu * downtime_pct / 100, 2),
+                "threshold": round(warn_threshold, 2),
                 "severity": "warn",
             })
     return results

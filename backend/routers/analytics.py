@@ -108,15 +108,17 @@ def overview(
         # Downtime: count days using threshold from settings
         ABS_MIN = 1.0
         downtime_pct = thresholds.get("downtime_pct", 10.0)
-        # Average consumed for this unit (non-zero days)
+        # Норма = 75-й перцентиль рабочих дней (без простойных)
         significant_consumed = [consumed_m[i] for i in indices if i < len(consumed_m) and consumed_m[i] >= ABS_MIN]
-        mu_consumed = float(np.mean(significant_consumed)) if significant_consumed else 0
+        mu_consumed = float(np.percentile(significant_consumed, 75)) if significant_consumed else 0
+        # Порог: снижение на downtime_pct% от нормы
+        low_threshold = mu_consumed * (100 - downtime_pct) / 100
         dt_count = 0
         for i in indices:
             c = abs(consumed_m[i]) if i < len(consumed_m) else 0
             p = abs(produced_m[i]) if i < len(produced_m) else 0
             is_full_stop = c < ABS_MIN and p < ABS_MIN
-            is_low = not is_full_stop and mu_consumed > 0 and c < mu_consumed * downtime_pct / 100
+            is_low = not is_full_stop and mu_consumed > 0 and c < low_threshold
             if is_full_stop or is_low:
                 dt_count += 1
         if dt_count > 0:

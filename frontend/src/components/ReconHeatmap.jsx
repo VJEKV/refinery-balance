@@ -340,7 +340,7 @@ export default function ReconHeatmap({ unitCode, direction, title, dateParams = 
             }}
           >
             <div className="font-semibold mb-1">{tooltip.product}</div>
-            <div>Дата: {new Date(tooltip.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</div>
+            <div>Дата: {tooltip.date.split('-').reverse().join('.')}</div>
             <div>Замер: {tooltip.measured.toFixed(1)} т</div>
             <div>Согл: {tooltip.reconciled.toFixed(1)} т</div>
             <div className="font-semibold mt-0.5">
