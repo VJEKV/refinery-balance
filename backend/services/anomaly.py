@@ -109,13 +109,14 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
     sigma = np.std(arr, ddof=0)
     if sigma == 0:
         return results
+    critical_threshold = spc_sigma * 2
     for i, d in enumerate(dates):
         if i >= len(consumed):
             break
         c = consumed[i]
         p = produced[i] if i < len(produced) else 0
         deviation = abs(c - mu) / sigma
-        if deviation > spc_sigma:
+        if deviation > critical_threshold:
             results.append({
                 "date": d.isoformat(),
                 "method": "spc",
@@ -128,11 +129,11 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
                 "mean": round(mu, 2),
                 "sigma_val": round(sigma, 2),
             })
-        elif deviation > spc_sigma - 1:
+        elif deviation > spc_sigma:
             results.append({
                 "date": d.isoformat(),
                 "method": "spc",
-                "description": f"Приближение к границе нормы: {deviation:.2f}σ от среднего",
+                "description": f"Приближение к границе нормы: {deviation:.2f}σ от среднего (допустимо {spc_sigma}σ)",
                 "value": round(deviation, 2),
                 "threshold": spc_sigma,
                 "severity": "warn",
@@ -145,7 +146,9 @@ def spc(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
 
 
 def cusum(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
-    """4.4 CUSUM (Page's)."""
+    """4.4 CUSUM (Page's).
+    Единая формула: warn = > порог, critical = > порог × 2.
+    """
     results = []
     cusum_drift = thresholds.get("cusum_drift", 5.0)
     consumed = unit_data["summary"]["consumed"]["measured"]
@@ -157,6 +160,7 @@ def cusum(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
         return results
     k = mu * 0.005
     H = mu * cusum_drift / 100
+    H_critical = H * 2
     s_plus = 0.0
     s_minus = 0.0
     for i, d in enumerate(dates):
@@ -165,27 +169,39 @@ def cusum(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
         x = consumed[i]
         s_plus = max(0, s_plus + (x - mu - k))
         s_minus = max(0, s_minus + (-x + mu - k))
-        if s_plus > H or s_minus > H:
+        max_s = max(s_plus, s_minus)
+        if max_s > H_critical:
             results.append({
                 "date": d.isoformat(),
                 "method": "cusum",
                 "description": f"Скрытый тренд: накопленное отклонение S+={s_plus:.1f}, S-={s_minus:.1f} (порог {H:.1f})",
-                "value": round(max(s_plus, s_minus), 2),
+                "value": round(max_s, 2),
                 "threshold": round(H, 2),
                 "severity": "critical",
+            })
+        elif max_s > H:
+            results.append({
+                "date": d.isoformat(),
+                "method": "cusum",
+                "description": f"Возможный тренд: накопленное отклонение S+={s_plus:.1f}, S-={s_minus:.1f} (порог {H:.1f})",
+                "value": round(max_s, 2),
+                "threshold": round(H, 2),
+                "severity": "warn",
             })
     return results
 
 
 def downtime(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]:
-    """4.5 Простои."""
+    """4.5 Простои.
+    Единая формула: warn = загрузка < порог% от среднего, critical = < порог/2%.
+    Полный простой (< 1 т) всегда critical.
+    """
     results = []
     downtime_pct = thresholds.get("downtime_pct", 10.0)
-    # Absolute minimum: if both consumed and produced < 1 ton, treat as downtime
+    critical_pct = downtime_pct / 2
     ABS_MIN = 1.0
     consumed = unit_data["summary"]["consumed"]["measured"]
     produced = unit_data["summary"]["produced"]["measured"]
-    # Use values above absolute minimum for meaningful average
     significant = [v for v in consumed if v >= ABS_MIN]
     mu = float(np.mean(significant)) if significant else 0
     for i, d in enumerate(dates):
@@ -203,22 +219,22 @@ def downtime(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict]
                 "threshold": ABS_MIN,
                 "severity": "critical",
             })
-        elif mu > 0 and c < mu * downtime_pct / 100:
+        elif mu > 0 and c < mu * critical_pct / 100:
             results.append({
                 "date": d.isoformat(),
                 "method": "downtime",
-                "description": f"Простой: загрузка {c:.0f} т < {downtime_pct}% от среднего ({mu:.0f} т)",
+                "description": f"Простой: загрузка {c:.0f} т < {critical_pct:.0f}% от среднего ({mu:.0f} т)",
                 "value": round(c, 2),
                 "threshold": round(mu * downtime_pct / 100, 2),
                 "severity": "critical",
             })
-        elif mu > 0 and c < mu * 0.5:
+        elif mu > 0 and c < mu * downtime_pct / 100:
             results.append({
                 "date": d.isoformat(),
                 "method": "downtime",
-                "description": f"Частичная загрузка: {c:.0f} т < 50% от среднего ({mu:.0f} т)",
+                "description": f"Сниженная загрузка: {c:.0f} т < {downtime_pct}% от среднего ({mu:.0f} т)",
                 "value": round(c, 2),
-                "threshold": round(mu * 0.5, 2),
+                "threshold": round(mu * downtime_pct / 100, 2),
                 "severity": "warn",
             })
     return results

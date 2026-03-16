@@ -6,7 +6,7 @@ const methods = [
     color: 'text-accent-red',
     bg: 'bg-accent-red/10',
     name: 'Небаланс вход/выход',
-    description: 'Разница между тем, что поступило на установку, и тем, что вышло. Если разница больше порога — возможны потери продукции, ошибки приборов или неучтённые сбросы.',
+    description: 'Разница между входом и выходом установки. Внимание — превышение порога, Критично — превышение порога ×2. Пример: порог 3% → Внимание при >3%, Критично при >6%.',
     risk: 'Неучтённые потери продукции, финансовые убытки.',
     check: 'Акты инвентаризации, журнал нештатных ситуаций, показания приборов на входе и выходе.',
   },
@@ -15,7 +15,7 @@ const methods = [
     color: 'text-accent-yellow',
     bg: 'bg-accent-yellow/10',
     name: 'Расхождение измерено/согласовано',
-    description: 'Приборы показали одно значение, а в согласованном балансе стоит другое. Чем больше разница — тем менее достоверны данные. Причины: неточные приборы, ручные корректировки, ошибки ввода.',
+    description: 'Разница между показаниями приборов и согласованным балансом. Внимание — превышение порога, Критично — превышение порога ×2. Пример: порог 5% → Внимание при >5%, Критично при >10%.',
     risk: 'Недостоверные данные учёта, невозможность контролировать реальные объёмы.',
     check: 'Акты проверки приборов, журнал ручных корректировок, протоколы согласования баланса.',
   },
@@ -24,7 +24,7 @@ const methods = [
     color: 'text-accent-blue',
     bg: 'bg-accent-blue/10',
     name: 'Нетипичные дни',
-    description: 'Дни, когда загрузка установки резко отличалась от обычного уровня. Порог задаёт допустимое количество отклонений от среднего. Возможны сбои оборудования, ошибки данных или нештатные режимы работы.',
+    description: 'Дни с резким отклонением загрузки от среднего. Внимание — превышение порога (в σ), Критично — превышение порога ×2. Пример: порог 2σ → Внимание при >2σ, Критично при >4σ.',
     risk: 'Скрытые проблемы оборудования, нештатные режимы, ошибки ввода данных.',
     check: 'Журнал работы установки за эти дни, заявки на ремонт, данные о переключениях режимов.',
   },
@@ -33,7 +33,7 @@ const methods = [
     color: 'text-accent-purple',
     bg: 'bg-accent-purple/10',
     name: 'Скрытый тренд',
-    description: 'Показатели понемногу смещаются в одну сторону день за днём. По отдельности каждый день выглядит нормально, но в сумме видно, что установка работает не так, как раньше. Причины: износ оборудования, изменение качества сырья.',
+    description: 'Показатели смещаются в одну сторону день за днём. Внимание — превышение порога, Критично — превышение порога ×2. Причины: износ оборудования, изменение качества сырья.',
     risk: 'Постепенный износ оборудования, изменение качества сырья, систематическая ошибка учёта.',
     check: 'Графики обслуживания оборудования, паспорта качества сырья, изменения в технологических картах.',
   },
@@ -42,7 +42,7 @@ const methods = [
     color: 'text-dark-muted',
     bg: 'bg-white/5',
     name: 'Простой',
-    description: 'Загрузка установки ниже порога от среднего уровня — установка не работала или работала на минимуме. Порог задаёт, при каком проценте от обычной загрузки день считается простоем.',
+    description: 'Загрузка ниже порога от среднего. Внимание — ниже порога, Критично — ниже порога/2. Полный простой (<1 т на входе и выходе) всегда Критично. Пример: порог 10% → Внимание при <10%, Критично при <5%.',
     risk: 'Потеря выработки, срыв плана, простой связанных установок.',
     check: 'Акты остановки/пуска, заявки на ремонт, графики ТО, причины ограничения загрузки.',
   },
@@ -51,7 +51,7 @@ const methods = [
     color: 'text-accent-green',
     bg: 'bg-accent-green/10',
     name: 'Потери продукции между установками',
-    description: 'Одна установка отдала продукт, а следующая получила меньше. Разница может означать потери при передаче, ошибки учёта или утечки на соединительных трубопроводах.',
+    description: 'Потери при передаче продукта между установками. Внимание — превышение порога, Критично — превышение порога ×2. Пример: порог 5% → Внимание при >5%, Критично при >10%.',
     risk: 'Потери продукции на соединительных трубопроводах, ошибки учёта на стыках.',
     check: 'Показания приборов на границах установок, акты передачи продукции, состояние трубопроводов.',
   },
@@ -83,10 +83,10 @@ const formulas = [
     where: 'Аккордеон «Потери продукции между установками».',
   },
   {
-    name: 'Нетипичные дни (σ — сигма)',
-    formula: '(факт − среднее) / стандартное отклонение',
-    explain: 'Это не проценты, а статистическая мера. Показывает, насколько день отличался от обычного. 2σ — заметное отклонение, 3σ — сильное. Чем больше число, тем необычнее был этот день.',
-    where: 'Аккордеон «Нетипичные дни».',
+    name: 'Нетипичные дни (μ — мю, σ — сигма)',
+    formula: '(факт − μ) / σ, где μ = среднее, σ = стандартное отклонение',
+    explain: 'μ (мю) — средний уровень загрузки установки за весь период (в тоннах). σ (сигма) — стандартное отклонение, мера разброса загрузки вокруг среднего. Формула показывает, на сколько «сигм» день отклонился от обычного. 2σ — заметное отклонение, 3σ — сильное. Чем больше число, тем необычнее был этот день.',
+    where: 'Аккордеон «Нетипичные дни», график SPC (значения μ и σ показаны под графиком).',
   },
   {
     name: 'Доля продукта',
@@ -154,6 +154,89 @@ export default function HelpPage() {
               <p className="text-[11px] text-dark-muted/70">Где используется: {f.where}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* === Пороги и уровни алармов === */}
+      <div className="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-accent-red/10 flex items-center justify-center">
+            <AlertTriangle size={18} className="text-accent-red" />
+          </div>
+          <h2 className="text-base font-semibold text-dark-text">Пороги и уровни алармов</h2>
+        </div>
+        <div className="space-y-3 text-sm text-dark-muted">
+          <p>
+            Каждый тип аномалии имеет <span className="text-dark-text font-medium">один настраиваемый порог</span> (слайдер в боковой панели).
+            Из него автоматически рассчитываются два уровня срабатывания:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3 bg-accent-yellow/5 border border-accent-yellow/20 rounded-lg">
+              <div className="text-xs font-semibold text-accent-yellow mb-1">Внимание (warn)</div>
+              <p className="text-xs text-dark-muted">Значение превысило порог. Стоит обратить внимание, но ситуация может быть объяснимой.</p>
+            </div>
+            <div className="p-3 bg-accent-red/5 border border-accent-red/20 rounded-lg">
+              <div className="text-xs font-semibold text-accent-red mb-1">Критично (critical)</div>
+              <p className="text-xs text-dark-muted">Значение превысило порог ×2. Серьёзное отклонение, требует проверки.</p>
+            </div>
+          </div>
+          <p className="font-semibold text-dark-text mt-2">Единая формула для всех методов</p>
+          <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-slate-400 bg-slate-800/50">
+                  <th className="px-3 py-2 border border-slate-600">Метод</th>
+                  <th className="px-3 py-2 border border-slate-600">Внимание</th>
+                  <th className="px-3 py-2 border border-slate-600">Критично</th>
+                  <th className="px-3 py-2 border border-slate-600">Пример (порог)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Небаланс</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&gt; порог</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&gt; порог ×2</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">3% → Внимание &gt;3%, Критично &gt;6%</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Расхождение</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&gt; порог</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&gt; порог ×2</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">5% → Внимание &gt;5%, Критично &gt;10%</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Нетипичные дни</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&gt; порог σ</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&gt; порог ×2 σ</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">2σ → Внимание &gt;2σ, Критично &gt;4σ</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Скрытый тренд</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&gt; порог</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&gt; порог ×2</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">5% → Внимание &gt;H, Критично &gt;2H</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Простой</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&lt; порог %</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&lt; порог/2 %</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">10% → Внимание &lt;10%, Критично &lt;5%</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-dark-text">Межцеховой</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-yellow">&gt; порог</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70 text-accent-red">&gt; порог ×2</td>
+                  <td className="px-3 py-1.5 border border-slate-600/70">5% → Внимание &gt;5%, Критично &gt;10%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <span className="text-dark-text font-medium">Исключение:</span> полный простой (загрузка и выпуск &lt; 1 тонны) всегда считается критичным, независимо от порога.
+          </p>
+          <p>
+            Пороги настраиваются в боковой панели слева (слайдеры). Меньше порог — больше срабатываний (строже контроль). Больше порог — меньше срабатываний (только крупные отклонения).
+          </p>
         </div>
       </div>
 
@@ -337,7 +420,7 @@ export default function HelpPage() {
 
           <div>
             <div className="text-dark-text font-medium mb-1">7. Настройка порогов</div>
-            <p>В боковой панели под фильтром дат — слайдеры порогов для каждого типа аномалий. Перетащите слайдер, чтобы изменить чувствительность, и нажмите «Сохранить». Меньше порог — больше срабатываний (строже контроль). Больше порог — меньше срабатываний (только крупные отклонения).</p>
+            <p>В боковой панели под фильтром дат — слайдеры порогов для каждого типа аномалий. Порог задаёт границу уровня «Внимание». Уровень «Критично» рассчитывается автоматически как порог ×2 (для простоев — порог/2). Перетащите слайдер, чтобы изменить чувствительность, и нажмите «Сохранить». Меньше порог — больше срабатываний (строже контроль). Больше порог — меньше срабатываний (только крупные отклонения).</p>
           </div>
 
           <div>
