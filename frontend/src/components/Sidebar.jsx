@@ -97,9 +97,9 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
       {/* Logo */}
       <div className="p-4 border-b border-dark-border flex items-center gap-3">
         <div className="w-8 h-8 rounded bg-accent-blue flex items-center justify-center text-white font-bold text-sm shrink-0">
-          МБ
+          TM
         </div>
-        <span className="text-sm font-semibold text-dark-text">МБ Аналитика</span>
+        <span className="text-sm font-semibold text-dark-text">ТИТАН МБ</span>
       </div>
 
       {/* Navigation */}
@@ -295,7 +295,7 @@ export default function Sidebar({ fileCount = 0, unitCount = 0, dateRange = '', 
         <div className="text-sm text-dark-muted">Файлов: {fileCount}</div>
         <div className="text-sm text-dark-muted">Установок: {unitCount}</div>
         {dateRange && <div className="text-sm text-dark-muted">Период: {dateRange}</div>}
-        <div className="text-xs text-dark-muted/50 pt-1">v1.8.0</div>
+        <div className="text-xs text-dark-muted/50 pt-1">v{__APP_VERSION__}</div>
       </div>
     </aside>
   )

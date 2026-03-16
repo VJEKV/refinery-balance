@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "=== НПЗ Материальный Баланс ==="
+echo "=== ТИТАН МБ ==="
 
 # Backend
 cd backend

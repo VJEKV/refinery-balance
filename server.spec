@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec для НПЗ Материальный Баланс."""
+"""PyInstaller spec для ТИТАН МБ."""
 
 import os
 

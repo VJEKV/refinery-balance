@@ -24,7 +24,7 @@ export default function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-12 border-b border-dark-border bg-dark-card flex items-center justify-between px-6 shrink-0">
           <h1 className="text-sm font-semibold text-dark-text">
-            Материальный Баланс НПЗ
+            ТИТАН МБ
           </h1>
           <div className="flex items-center gap-4 text-xs text-dark-muted">
             <span>{overview?.latest_date || '—'}</span>

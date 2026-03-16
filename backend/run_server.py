@@ -14,7 +14,7 @@ if __name__ == "__main__":
     from main import app  # noqa: F401
 
     print("=" * 50)
-    print("  НПЗ Материальный Баланс — Аналитика")
+    print("  ТИТАН МБ — Аналитика")
     print("  http://127.0.0.1:8001")
     print("=" * 50)
 
