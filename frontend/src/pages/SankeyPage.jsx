@@ -26,15 +26,16 @@ export default function SankeyPage() {
 
   const formatDate = (iso) => {
     if (!iso) return '—'
-    const d = new Date(iso)
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    const parts = String(iso).slice(0, 10).split('-')
+    if (parts.length !== 3) return iso
+    return `${parts[2]}.${parts[1]}.${parts[0]}`
   }
 
   const sankeyUrl = (() => {
     if (!activeDate) return null
     if (period === 'monthly') {
-      const d = new Date(activeDate)
-      return `/sankey/monthly?year=${d.getFullYear()}&month=${d.getMonth() + 1}&type=${dataType}`
+      const p = String(activeDate).slice(0, 10).split('-')
+      return `/sankey/monthly?year=${p[0]}&month=${parseInt(p[1])}&type=${dataType}`
     }
     return `/sankey?date=${activeDate}&type=${dataType}`
   })()

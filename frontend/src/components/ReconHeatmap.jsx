@@ -47,8 +47,9 @@ function textColor(bgPct) {
 }
 
 function formatDay(dateStr) {
-  const d = new Date(dateStr)
-  return d.getDate()
+  // Parse ISO string directly to avoid timezone issues
+  const parts = String(dateStr).slice(0, 10).split('-')
+  return parts.length === 3 ? `${parts[2]}.${parts[1]}` : dateStr
 }
 
 export default function ReconHeatmap({ unitCode, direction, title, dateParams = {} }) {

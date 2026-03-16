@@ -76,8 +76,9 @@ function textOnBg(pct, type) {
 }
 
 function formatDay(iso) {
-  const d = new Date(iso)
-  return d.getDate().toString().padStart(2, '0')
+  // Parse ISO string directly to avoid timezone issues
+  const parts = String(iso).slice(0, 10).split('-')
+  return parts.length === 3 ? `${parts[2]}.${parts[1]}` : iso
 }
 
 function fmtTons(v) {

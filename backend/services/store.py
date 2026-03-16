@@ -44,6 +44,8 @@ class DataStore:
                 print(f"  Ошибка загрузки {path}: {e}")
 
         self.dates.sort()
+        for unit in self.units.values():
+            self._sort_unit_dates(unit)
         print(f"Загрузка завершена за {time.time()-start:.1f}с")
 
     def add_file(self, filepath: str):
@@ -53,6 +55,8 @@ class DataStore:
         report = parse_report(filepath)
         self._add_report(report)
         self.dates.sort()
+        for unit in self.units.values():
+            self._sort_unit_dates(unit)
         print(f"Добавлен {report['filename']} за {time.time()-t0:.1f}с")
 
     def _add_report(self, report):
@@ -94,6 +98,24 @@ class DataStore:
                         existing["dates"].append(d)
                 existing["plan_monthly"].update(plan_for_month)
                 self._merge_unit(existing["data"], unit_data, report["dates"])
+
+    def _sort_unit_dates(self, unit):
+        """Отсортировать даты unit и переупорядочить summary-массивы по тому же порядку."""
+        dates = unit["dates"]
+        if len(dates) <= 1:
+            return
+        order = sorted(range(len(dates)), key=lambda i: dates[i])
+        # Если уже отсортировано — ничего не делать
+        if order == list(range(len(dates))):
+            return
+        unit["dates"] = [dates[i] for i in order]
+        for summary_key in ("consumed", "produced", "imbalance", "imbalance_rel"):
+            for stream in ("measured", "reconciled"):
+                arr = unit["data"]["summary"][summary_key][stream]
+                if len(arr) == len(dates):
+                    reordered = [arr[i] for i in order]
+                    arr.clear()
+                    arr.extend(reordered)
 
     def _make_code(self, name: str) -> str:
         cleaned = re.sub(r'[^\w\s]', '', name)
