@@ -86,12 +86,12 @@ def recon_gap(unit_data: Dict, dates: List[date], thresholds: Dict) -> List[Dict
                 "input_reconciled": round(r, 2),
                 "output_measured": round(p_m, 2),
                 "output_reconciled": round(p_r, 2),
-                "delta_input_tons": round(abs(m - r), 2),
-                "delta_input_pct": round(gap, 2),
-                "delta_output_tons": round(abs(p_m - p_r), 2),
-                "delta_output_pct": round(gap_out, 2),
-                "delta_tons": round(abs(m - r), 2),
-                "delta_pct": round(max_gap, 2),
+                "delta_input_tons": round(r - m, 2),
+                "delta_input_pct": round((r - m) / abs(m) * 100, 2) if m else 0,
+                "delta_output_tons": round(p_r - p_m, 2),
+                "delta_output_pct": round((p_r - p_m) / abs(p_m) * 100, 2) if p_m else 0,
+                "delta_tons": round(r - m, 2),
+                "delta_pct": round((r - m) / abs(m) * 100, 2) if m else 0,
             })
     return results
 

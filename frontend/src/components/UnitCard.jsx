@@ -567,8 +567,11 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
         </td>
       </tr>
       {items.map((p, j) => {
-        const isHigh = p.delta_pct > 5
+        const isHigh = Math.abs(p.delta_pct ?? 0) > 5
         const fmt = v => (v ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})
+        const fmtD = v => { const n = v ?? 0; return (n >= 0 ? '+' : '') + n.toLocaleString('ru-RU', {maximumFractionDigits:1}) }
+        const fmtDp = v => { const n = v ?? 0; return (n >= 0 ? '+' : '') + n.toFixed(2) + '%' }
+        const deltaColor = Math.abs(p.delta_pct ?? 0) > 5 ? 'text-accent-red font-medium' : Math.abs(p.delta_pct ?? 0) > 2 ? 'text-accent-yellow' : 'text-dark-muted'
         return (
           <tr key={`${label}-${j}`} className="bg-[#0a1225]">
             <td className={`${tdCls} text-slate-200 pl-6`} title={p.product}>↳ {p.product}</td>
@@ -578,8 +581,8 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
                   <>
                     <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
                     <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                    <td className={`${tdCls} text-right tabular-nums ${deltaColor}`}>{fmtD(p.delta_tons)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${deltaColor}`}>{fmtDp(p.delta_pct)}</td>
                     <td colSpan={4} className={tdCls} />
                   </>
                 ) : (
@@ -587,8 +590,8 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
                     <td colSpan={4} className={tdCls} />
                     <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
                     <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
-                    <td className={`${tdCls} text-right tabular-nums ${isHigh ? 'text-accent-red font-medium' : 'text-accent-yellow'}`}>{(p.delta_pct ?? 0).toFixed(2)}%</td>
+                    <td className={`${tdCls} text-right tabular-nums ${deltaColor}`}>{fmtD(p.delta_tons)}</td>
+                    <td className={`${tdCls} text-right tabular-nums ${deltaColor}`}>{fmtDp(p.delta_pct)}</td>
                   </>
                 )}
               </>
@@ -633,18 +636,20 @@ function ProductsSubRow({ unitCode, dateStr, unitName, colSpan, method }) {
 function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr }) {
   const fmt = v => (v ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
   const fmtPct = v => (v ?? 0).toFixed(2)
+  const fmtDelta = v => { const n = v ?? 0; return (n >= 0 ? '+' : '') + n.toLocaleString('ru-RU', {maximumFractionDigits:1}) }
+  const fmtDeltaPct = v => { const n = v ?? 0; return (n >= 0 ? '+' : '') + n.toFixed(2) + '%' }
 
   const allProducts = [
     ...inputs.map(p => ({ ...p, direction: 'Сырьё' })),
     ...outputs.map(p => ({ ...p, direction: 'Продукция' })),
   ]
-  const corrected = allProducts.filter(p => (p.delta_pct ?? 0) > 0).sort((a, b) => (b.delta_pct ?? 0) - (a.delta_pct ?? 0))
-  const maxDelta = corrected.length > 0 ? corrected[0].delta_pct : 0
+  const corrected = allProducts.filter(p => Math.abs(p.delta_pct ?? 0) > 0.01).sort((a, b) => Math.abs(b.delta_pct ?? 0) - Math.abs(a.delta_pct ?? 0))
+  const maxDelta = corrected.length > 0 ? Math.abs(corrected[0].delta_pct) : 0
 
   const totalCorrInput = inputs.reduce((s, p) => s + Math.abs(p.delta_tons ?? 0), 0)
   const totalCorrOutput = outputs.reduce((s, p) => s + Math.abs(p.delta_tons ?? 0), 0)
   const totalCorr = totalCorrInput + totalCorrOutput
-  const bigCorrections = corrected.filter(p => (p.delta_pct ?? 0) > 3)
+  const bigCorrections = corrected.filter(p => Math.abs(p.delta_pct ?? 0) > 3)
 
   const exportAnalysis = () => {
     const rows = corrected.map(p => ({
@@ -703,15 +708,17 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
                     <th className={`${thCls} text-xs text-right`}>Замер (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Согласов (т)</th>
                     <th className={`${thCls} text-xs text-right`}>Корр. (т)</th>
-                    <th className={`${thCls} text-xs text-right`}>Корр. (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></th>
+                    <th className={`${thCls} text-xs text-right`}>Корр. (%)<InfoTooltip text="Δ = (согласовано − замер) / замер × 100%" /></th>
                     <th className={`${thCls} text-xs w-28`}>Масштаб</th>
                   </tr>
                 </thead>
                 <tbody>
                   {corrected.map((p, i) => {
                     const pct = p.delta_pct ?? 0
-                    const isHigh = pct > 3
-                    const barWidth = maxDelta > 0 ? Math.min(100, (pct / maxDelta) * 100) : 0
+                    const absPct = Math.abs(pct)
+                    const isHigh = absPct > 3
+                    const barWidth = maxDelta > 0 ? Math.min(100, (absPct / maxDelta) * 100) : 0
+                    const dColor = absPct > 5 ? 'text-accent-red font-medium' : absPct > 2 ? 'text-accent-yellow' : 'text-dark-muted'
                     return (
                       <tr key={i} className={isHigh ? 'bg-accent-red/5' : 'bg-[#0a1225]'}>
                         <td className={`${tdCls} text-dark-text font-medium`}>{p.product}</td>
@@ -722,8 +729,8 @@ function DeepAnalysisSubRow({ data, inputs, outputs, colSpan, unitName, dateStr 
                         </td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{fmt(p.measured)}</td>
                         <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{fmt(p.reconciled)}</td>
-                        <td className={`${tdCls} text-right tabular-nums font-medium ${isHigh ? 'text-accent-red' : 'text-accent-yellow'}`}>{fmt(p.delta_tons)}</td>
-                        <td className={`${tdCls} text-right tabular-nums font-medium ${isHigh ? 'text-accent-red' : 'text-accent-yellow'}`}>{fmtPct(pct)}%</td>
+                        <td className={`${tdCls} text-right tabular-nums ${dColor}`}>{fmtDelta(p.delta_tons)}</td>
+                        <td className={`${tdCls} text-right tabular-nums ${dColor}`}>{fmtDeltaPct(pct)}</td>
                         <td className={tdCls}>
                           <div className="w-full bg-slate-700/30 rounded-full h-1.5">
                             <div

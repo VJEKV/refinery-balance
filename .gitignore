@@ -11,3 +11,8 @@ dist/
 build/
 release/
 build_tmp/
+NPZ_MB_download/
+.ruvector/
+versions/
+*.xlsm
+NPZ_MB_v*.zip

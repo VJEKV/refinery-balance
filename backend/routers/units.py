@@ -88,9 +88,9 @@ def get_unit(
             grand_total_m = sum(p["measured"] for p in items)
             for p in items:
                 p["share_pct"] = round(p["measured"] / grand_total_m * 100, 2) if grand_total_m else 0.0
-                delta = p["measured"] - p["reconciled"]
+                delta = p["reconciled"] - p["measured"]
                 p["delta_tons"] = round(delta, 2)
-                p["delta_pct"] = round(delta / p["reconciled"] * 100, 2) if p["reconciled"] else 0.0
+                p["delta_pct"] = round(delta / p["measured"] * 100, 2) if p["measured"] else 0.0
             items.sort(key=lambda x: x["share_pct"], reverse=True)
             products[direction] = items
 

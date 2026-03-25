@@ -1,178 +1,182 @@
-import { useRef, useEffect, useState } from 'react'
-import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
+import { useMemo, useState } from 'react'
+import { sankey as d3Sankey, sankeyLinkHorizontal, sankeyJustify } from 'd3-sankey'
 
-export default function SankeyDiagram({ sankeyData, resolved }) {
-  const svgRef = useRef()
+const TYPE_COLORS = {
+  unit: '#3b82f6',
+  external_input: '#4ade80',
+  external_output: '#f59e0b',
+  losses: '#f87171',
+}
+
+export default function SankeyDiagram({ sankeyData }) {
+  const [hoveredNode, setHoveredNode] = useState(null)
+  const [hoveredLink, setHoveredLink] = useState(null)
   const [tooltip, setTooltip] = useState(null)
 
-  const colors = resolved?.colors
-  const fontFamily = resolved?.fontFamily || "'Inter', sans-serif"
-  const fontSize = resolved?.fontSize
+  const layout = useMemo(() => {
+    if (!sankeyData?.nodes?.length || !sankeyData?.links?.length) return null
 
-  useEffect(() => {
-    if (!sankeyData || !sankeyData.nodes || sankeyData.nodes.length === 0) return
-    const svg = svgRef.current
-    if (!svg) return
+    const validLinks = sankeyData.links.filter(l => l.source !== l.target && l.value > 0)
+    if (!validLinks.length) return null
 
-    const cPrimary = colors?.primary || '#3b82f6'
-    const cSuccess = colors?.success || '#4ade80'
-    const cWarning = colors?.warning || '#f59e0b'
-    const cDanger = colors?.danger || '#f87171'
-    const cMuted = colors?.muted || '#94a3b8'
-    const labelSize = fontSize?.label || 12
-    const axisSize = fontSize?.axis || 11
+    const nodeCount = sankeyData.nodes.length
+    const width = 960
+    const height = Math.max(500, nodeCount * 40)
 
-    const typeColors = {
-      unit: cPrimary,
-      external_input: cSuccess,
-      external_output: cWarning,
-      losses: cDanger,
+    try {
+      const nodesClone = sankeyData.nodes.map((n, i) => ({ ...n, _idx: i }))
+      const linksClone = validLinks.map(l => ({ ...l, source: l.source, target: l.target }))
+
+      const generator = d3Sankey()
+        .nodeId(d => d._idx)
+        .nodeWidth(20)
+        .nodePadding(Math.max(6, Math.min(16, 400 / nodeCount)))
+        .nodeAlign(sankeyJustify)
+        .extent([[10, 10], [width - 10, height - 10]])
+        .iterations(6)
+
+      const graph = generator({ nodes: nodesClone, links: linksClone })
+
+      return { nodes: graph.nodes, links: graph.links, width, height }
+    } catch (e) {
+      console.error('Sankey layout error:', e)
+      return null
     }
+  }, [sankeyData])
 
-    const width = svg.clientWidth || 900
-    const height = Math.max(500, sankeyData.nodes.length * 50)
-
-    const validLinks = sankeyData.links.filter(
-      l => l.source !== l.target && l.value > 0
-    )
-
-    if (validLinks.length === 0) {
-      svg.innerHTML = `<text x="50%" y="50%" fill="${cMuted}" text-anchor="middle" font-size="${labelSize}" font-family="${fontFamily}">Нет связей для отображения</text>`
-      return
-    }
-
-    const layout = d3Sankey()
-      .nodeId(d => d.index)
-      .nodeWidth(22)
-      .nodePadding(16)
-      .extent([[10, 10], [width - 10, height - 10]])
-
-    const graph = layout({
-      nodes: sankeyData.nodes.map((n, i) => ({ ...n, index: i })),
-      links: validLinks.map(l => ({ ...l })),
-    })
-
-    let svgContent = ''
-
-    // Links
-    graph.links.forEach((link, idx) => {
-      const path = sankeyLinkHorizontal()(link)
-      const isLoss = link.loss > 0
-      const color = isLoss ? cDanger : cPrimary
-      const opacity = isLoss ? 0.45 : 0.25
-      const w = Math.max(1, link.width)
-      svgContent += `<path class="sankey-link" data-idx="${idx}" data-loss="${isLoss ? '1' : '0'}" d="${path}" fill="none" stroke="${color}" stroke-opacity="${opacity}" stroke-width="${w}" style="cursor:pointer" />`
-
-      const midX = (link.source.x1 + link.target.x0) / 2
-      const midY = (link.y0 + link.y1) / 2
-      const labelText = `${link.product}: ${link.value.toFixed(1)} т`
-      const truncLabel = labelText.length > 40 ? labelText.slice(0, 38) + '...' : labelText
-      if (w > 2) {
-        svgContent += `<text x="${midX}" y="${midY}" dy="0.35em" text-anchor="middle" fill="${cMuted}" font-size="${w > 6 ? axisSize - 1 : axisSize - 2}" font-family="${fontFamily}" pointer-events="none" opacity="${w > 4 ? 1 : 0.7}">${truncLabel}</text>`
-      }
-    })
-
-    // Nodes
-    graph.nodes.forEach(node => {
-      const color = typeColors[node.type] || cPrimary
-      const h = Math.max(1, node.y1 - node.y0)
-      svgContent += `<rect x="${node.x0}" y="${node.y0}" width="${node.x1 - node.x0}" height="${h}" fill="${color}" rx="3" />`
-
-      const labelX = node.x0 < width / 2 ? node.x1 + 8 : node.x0 - 8
-      const anchor = node.x0 < width / 2 ? 'start' : 'end'
-      const labelY = (node.y0 + node.y1) / 2
-      const shortName = node.name.length > 28 ? node.name.slice(0, 26) + '...' : node.name
-      svgContent += `<text x="${labelX}" y="${labelY}" dy="-0.2em" text-anchor="${anchor}" fill="#e2e8f0" font-size="${axisSize}" font-weight="600" font-family="${fontFamily}">${shortName}</text>`
-
-      if (node.type === 'unit') {
-        const totalIn = (node.targetLinks || []).reduce((s, l) => s + l.value, 0)
-        const totalOut = (node.sourceLinks || []).reduce((s, l) => s + l.value, 0)
-        if (totalIn > 0 || totalOut > 0) {
-          svgContent += `<text x="${labelX}" y="${labelY}" dy="1.0em" text-anchor="${anchor}" fill="${cMuted}" font-size="${axisSize - 2}" font-family="${fontFamily}">вх ${totalIn.toFixed(0)} / вых ${totalOut.toFixed(0)} т</text>`
-        }
-      }
-    })
-
-    svg.innerHTML = svgContent
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`)
-
-    // Hover events
-    svg.querySelectorAll('.sankey-link').forEach(el => {
-      el.addEventListener('mouseenter', (e) => {
-        const idx = parseInt(el.dataset.idx)
-        const link = graph.links[idx]
-        if (!link) return
-        el.setAttribute('stroke-opacity', '0.7')
-        setTooltip({
-          x: e.clientX,
-          y: e.clientY,
-          product: link.product,
-          productCount: link.product_count || 1,
-          sourceName: link.source_name || link.source?.name || '',
-          targetName: link.target_name || link.target?.name || '',
-          value: link.output_value || link.value,
-          inputValue: link.input_value || 0,
-          loss: link.loss || 0,
-          totalValue: link.value,
-        })
-      })
-      el.addEventListener('mouseleave', () => {
-        const isLoss = el.dataset.loss === '1'
-        el.setAttribute('stroke-opacity', isLoss ? '0.45' : '0.25')
-        setTooltip(null)
-      })
-    })
-  }, [sankeyData, colors, fontFamily, fontSize])
-
-  if (!sankeyData || !sankeyData.nodes || sankeyData.nodes.length === 0) {
-    return <div className="text-dark-muted text-sm p-4">Нет данных для Sankey</div>
+  if (!layout) {
+    return <div className="text-dark-muted text-sm p-4">Нет данных для построения диаграммы</div>
   }
 
-  const cPrimary = colors?.primary || '#3b82f6'
-  const cSuccess = colors?.success || '#4ade80'
-  const cWarning = colors?.warning || '#f59e0b'
-  const cDanger = colors?.danger || '#f87171'
+  const { nodes, links, width, height } = layout
+
+  const isConnected = (nodeIdx) => {
+    if (hoveredNode === null) return true
+    return nodeIdx === hoveredNode ||
+      links.some(l =>
+        (l.source.index === hoveredNode && l.target.index === nodeIdx) ||
+        (l.target.index === hoveredNode && l.source.index === nodeIdx)
+      )
+  }
+
+  const isLinkHighlighted = (link) => {
+    if (hoveredNode !== null) {
+      return link.source.index === hoveredNode || link.target.index === hoveredNode
+    }
+    if (hoveredLink !== null) return hoveredLink === link.index
+    return true
+  }
 
   return (
-    <>
-      <svg ref={svgRef} width="100%" height={Math.max(500, sankeyData.nodes.length * 50)} />
+    <div className="relative">
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="select-none">
+        {/* Links */}
+        {links.map((link, i) => {
+          const path = sankeyLinkHorizontal()(link)
+          const isLoss = (link.loss || 0) > 0
+          const color = isLoss ? '#f87171' : '#3b82f6'
+          const highlighted = isLinkHighlighted(link)
+          return (
+            <path
+              key={`link-${i}`}
+              d={path}
+              fill="none"
+              stroke={color}
+              strokeOpacity={highlighted ? 0.4 : 0.06}
+              strokeWidth={Math.max(1, link.width)}
+              style={{ cursor: 'pointer', transition: 'stroke-opacity 0.2s' }}
+              onMouseEnter={(e) => {
+                setHoveredLink(link.index)
+                setTooltip({
+                  x: e.clientX, y: e.clientY,
+                  content: (
+                    <>
+                      <div className="font-semibold">{link.product || 'Поток'}</div>
+                      {link.product_count > 1 && <div className="text-[10px] opacity-70">{link.product_count} продуктов</div>}
+                      <div className="opacity-70">{link.source_name || link.source?.name} → {link.target_name || link.target?.name}</div>
+                      <div className="mt-1">Объём: {link.value?.toFixed(1)} т</div>
+                      {link.output_value > 0 && <div>Выход: {link.output_value?.toFixed(1)} т</div>}
+                      {link.input_value > 0 && <div>Вход: {link.input_value?.toFixed(1)} т</div>}
+                      {link.loss !== 0 && (
+                        <div className={link.loss > 0 ? 'text-red-400 font-semibold' : 'text-green-400'}>
+                          Потери: {link.loss > 0 ? '+' : ''}{link.loss?.toFixed(1)} т
+                        </div>
+                      )}
+                    </>
+                  )
+                })
+              }}
+              onMouseLeave={() => { setHoveredLink(null); setTooltip(null) }}
+            />
+          )
+        })}
 
+        {/* Link labels */}
+        {links.map((link, i) => {
+          if (link.width < 3) return null
+          const midX = (link.source.x1 + link.target.x0) / 2
+          const midY = (link.y0 + link.y1) / 2
+          const label = `${(link.product || '').slice(0, 30)}: ${link.value?.toFixed(0)}т`
+          return (
+            <text key={`label-${i}`} x={midX} y={midY} dy="0.35em"
+              textAnchor="middle" fill="#94a3b8" fontSize={link.width > 6 ? 10 : 9}
+              pointerEvents="none" opacity={isLinkHighlighted(link) ? 0.9 : 0.2}
+            >{label}</text>
+          )
+        })}
+
+        {/* Nodes */}
+        {nodes.map((node, i) => {
+          const color = TYPE_COLORS[node.type] || '#3b82f6'
+          const h = Math.max(2, node.y1 - node.y0)
+          const connected = isConnected(i)
+          const labelX = node.x0 < width / 2 ? node.x1 + 8 : node.x0 - 8
+          const anchor = node.x0 < width / 2 ? 'start' : 'end'
+          const labelY = (node.y0 + node.y1) / 2
+          const shortName = node.name?.length > 25 ? node.name.slice(0, 23) + '…' : node.name
+
+          const totalIn = (node.targetLinks || []).reduce((s, l) => s + l.value, 0)
+          const totalOut = (node.sourceLinks || []).reduce((s, l) => s + l.value, 0)
+
+          return (
+            <g key={`node-${i}`}
+              style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+              opacity={connected ? 1 : 0.15}
+              onMouseEnter={() => setHoveredNode(i)}
+              onMouseLeave={() => setHoveredNode(null)}
+            >
+              <rect x={node.x0} y={node.y0} width={node.x1 - node.x0} height={h}
+                fill={color} rx={3}
+                stroke={hoveredNode === i ? '#fff' : 'none'} strokeWidth={hoveredNode === i ? 2 : 0}
+              />
+              <text x={labelX} y={labelY} dy="-0.3em" textAnchor={anchor}
+                fill="#e2e8f0" fontSize={11} fontWeight={600}
+              >{shortName}</text>
+              {node.type === 'unit' && (totalIn > 0 || totalOut > 0) && (
+                <text x={labelX} y={labelY} dy="0.9em" textAnchor={anchor}
+                  fill="#94a3b8" fontSize={9}
+                >вх {totalIn.toFixed(0)} / вых {totalOut.toFixed(0)} т</text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* Tooltip */}
       {tooltip && (
-        <div
-          className="fixed z-50 border rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none"
-          style={{
-            left: tooltip.x + 12,
-            top: tooltip.y - 10,
-            backgroundColor: colors?.tooltip?.bg || '#f8fafc',
-            borderColor: colors?.tooltip?.border || '#cbd5e1',
-            color: colors?.tooltip?.text || '#1e293b',
-            fontFamily,
-          }}
-        >
-          <div className="font-semibold mb-1" style={{ color: colors?.tooltip?.text || '#1e293b' }}>{tooltip.product}</div>
-          {tooltip.productCount > 1 && (
-            <div style={{ color: colors?.tooltip?.muted || '#64748b', fontSize: '10px' }}>({tooltip.productCount} продуктов)</div>
-          )}
-          <div style={{ color: colors?.tooltip?.muted || '#64748b' }}>{tooltip.sourceName} → {tooltip.targetName}</div>
-          <div className="mt-1" style={{ color: colors?.tooltip?.text || '#1e293b' }}>Всего: {tooltip.totalValue.toFixed(1)} т</div>
-          <div style={{ color: colors?.tooltip?.text || '#1e293b' }}>Выход: {tooltip.value.toFixed(1)} т</div>
-          {tooltip.inputValue > 0 && (
-            <div style={{ color: colors?.tooltip?.text || '#1e293b' }}>Вход: {tooltip.inputValue.toFixed(1)} т</div>
-          )}
-          {tooltip.loss !== 0 && (
-            <div style={{ color: tooltip.loss > 0 ? cDanger : cSuccess, fontWeight: 600 }}>
-              Потери: {tooltip.loss > 0 ? '+' : ''}{tooltip.loss.toFixed(1)} т
-            </div>
-          )}
+        <div className="fixed z-50 border rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none bg-slate-100 border-slate-300 text-slate-900"
+          style={{ left: tooltip.x + 14, top: tooltip.y - 10 }}>
+          {tooltip.content}
         </div>
       )}
 
-      <div className="flex gap-4 mt-3 text-xs" style={{ fontFamily, color: colors?.muted || '#94a3b8' }}>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: cPrimary }} /> Установки</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: cSuccess }} /> Внешнее сырьё</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: cWarning }} /> Внешняя продукция</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: cDanger }} /> Потери</span>
+      {/* Legend */}
+      <div className="flex gap-4 mt-3 text-xs text-dark-muted">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: TYPE_COLORS.unit }} /> Установки</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: TYPE_COLORS.external_input }} /> Внешнее сырьё</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: TYPE_COLORS.external_output }} /> Внешняя продукция</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ backgroundColor: TYPE_COLORS.losses }} /> Потери</span>
       </div>
-    </>
+    </div>
   )
 }

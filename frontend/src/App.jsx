@@ -10,7 +10,7 @@ import HelpPage from './pages/HelpPage'
 export default function App() {
   return (
     <DateFilterProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL?.replace(/\/$/, '') || ''}>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<OverviewPage />} />

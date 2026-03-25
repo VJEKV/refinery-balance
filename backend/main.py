@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ТИТАН МБ",
     description="Аналитика материального баланса нефтеперерабатывающего завода",
-    version="1.8.2",
+    version="1.9.0",
     lifespan=lifespan,
 )
 
@@ -73,4 +73,15 @@ def _get_dist_dir():
 DIST_DIR = _get_dist_dir()
 if os.path.isdir(DIST_DIR):
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="static")
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    # Статика (JS, CSS, изображения)
+    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """SPA fallback — отдаёт index.html для всех не-API маршрутов."""
+        file_path = os.path.join(DIST_DIR, full_path)
+        if full_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))

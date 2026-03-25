@@ -158,10 +158,10 @@ def overview(
             "fact_output_tons": round(out_m, 2),
             "plan_pct_input": plan_pct_in,
             "plan_pct_output": plan_pct_out,
-            "delta_input_tons": round(in_m - in_r, 2),
-            "delta_input_pct": round((in_m - in_r) / in_r * 100, 2) if in_r else 0.0,
-            "delta_output_tons": round(out_m - out_r, 2),
-            "delta_output_pct": round((out_m - out_r) / out_r * 100, 2) if out_r else 0.0,
+            "delta_input_tons": round(in_r - in_m, 2),
+            "delta_input_pct": round((in_r - in_m) / in_m * 100, 2) if in_m else 0.0,
+            "delta_output_tons": round(out_r - out_m, 2),
+            "delta_output_pct": round((out_r - out_m) / out_m * 100, 2) if out_m else 0.0,
         })
 
     cross_anomalies = detect_cross_unit(store.units, target_dates, thresholds)
@@ -291,11 +291,11 @@ def product_heatmap(
             ds = d.strftime("%Y-%m-%d")
             m = float(row.get(f"{ds}_meas", 0) or 0)
             r = float(row.get(f"{ds}_recon", 0) or 0)
-            delta_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
+            delta_pct = round((r - m) / abs(m) * 100, 2) if m != 0 else 0.0
             row_data.append({
                 "measured": round(m, 2),
                 "reconciled": round(r, 2),
-                "delta_tons": round(abs(m - r), 2),
+                "delta_tons": round(r - m, 2),
                 "delta_pct": delta_pct,
             })
             if m > 0 or r > 0:
@@ -339,3 +339,167 @@ def yearly(unit: str):
     if not u:
         raise HTTPException(404, "Установка не найдена")
     return aggregator.get_yearly(u["data"], u["dates"])
+
+
+@router.get("/plan-fact")
+def plan_fact(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+    months: Optional[str] = None,
+):
+    """Monthly plan vs fact breakdown: units in rows, months in columns."""
+    all_dates = store.dates
+    if not all_dates:
+        return {"months": [], "units": [], "totals": {}}
+
+    has_filter = date_from or date_to or (month is not None) or months
+    target_dates = store.filter_dates(date_from, date_to, month, months) if has_filter else all_dates
+    if not target_dates:
+        return {"months": [], "units": [], "totals": {}}
+
+    # Collect all months present in target_dates
+    month_keys = sorted(set(f"{d.year}-{d.month:02d}" for d in target_dates))
+
+    units_result = []
+    for code, unit_info in store.units.items():
+        data = unit_info["data"]
+        unit_dates = unit_info["dates"]
+        plan_monthly = unit_info.get("plan_monthly", {})
+        consumed_m = data["summary"]["consumed"]["measured"]
+        produced_m = data["summary"]["produced"]["measured"]
+
+        monthly_data = {}
+        for mk in month_keys:
+            y, m = int(mk[:4]), int(mk[5:])
+            indices = [i for i, d in enumerate(unit_dates) if d.year == y and d.month == m and d in set(target_dates)]
+            fact_in = sum(consumed_m[i] for i in indices if i < len(consumed_m))
+            fact_out = sum(produced_m[i] for i in indices if i < len(produced_m))
+            plan_in = plan_monthly.get(mk, {}).get("input", 0)
+            plan_out = plan_monthly.get(mk, {}).get("output", 0)
+            pct_in = round(fact_in / plan_in * 100, 1) if plan_in else 0
+            pct_out = round(fact_out / plan_out * 100, 1) if plan_out else 0
+
+            # Daily breakdown for expandable rows
+            days = []
+            month_dates = sorted([d for d in unit_dates if d.year == y and d.month == m and d in set(target_dates)])
+            plan_day_in = round(plan_in / len(month_dates), 2) if month_dates and plan_in else 0
+            plan_day_out = round(plan_out / len(month_dates), 2) if month_dates and plan_out else 0
+            for d in month_dates:
+                idx = unit_dates.index(d)
+                day_fact_in = round(consumed_m[idx], 2) if idx < len(consumed_m) else 0
+                day_fact_out = round(produced_m[idx], 2) if idx < len(produced_m) else 0
+                days.append({
+                    "date": d.isoformat(),
+                    "plan_in": plan_day_in,
+                    "fact_in": day_fact_in,
+                    "plan_out": plan_day_out,
+                    "fact_out": day_fact_out,
+                })
+
+            monthly_data[mk] = {
+                "plan_in": round(plan_in, 2),
+                "fact_in": round(fact_in, 2),
+                "plan_out": round(plan_out, 2),
+                "fact_out": round(fact_out, 2),
+                "pct_in": pct_in,
+                "pct_out": pct_out,
+                "days": days,
+            }
+
+        # Totals for this unit
+        total_plan_in = sum(monthly_data[mk]["plan_in"] for mk in month_keys)
+        total_fact_in = sum(monthly_data[mk]["fact_in"] for mk in month_keys)
+        total_plan_out = sum(monthly_data[mk]["plan_out"] for mk in month_keys)
+        total_fact_out = sum(monthly_data[mk]["fact_out"] for mk in month_keys)
+
+        units_result.append({
+            "code": code,
+            "name": unit_info["name"],
+            "months": monthly_data,
+            "total_plan_in": round(total_plan_in, 2),
+            "total_fact_in": round(total_fact_in, 2),
+            "total_plan_out": round(total_plan_out, 2),
+            "total_fact_out": round(total_fact_out, 2),
+            "total_pct_in": round(total_fact_in / total_plan_in * 100, 1) if total_plan_in else 0,
+            "total_pct_out": round(total_fact_out / total_plan_out * 100, 1) if total_plan_out else 0,
+        })
+
+    return {"months": month_keys, "units": units_result}
+
+
+@router.get("/corrections")
+def corrections(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    month: Optional[int] = None,
+    months: Optional[str] = None,
+):
+    """Aggregated product corrections across all units."""
+    from services.product_recon import get_product_recon_gaps
+
+    all_dates = store.dates
+    if not all_dates:
+        return {"products": []}
+
+    has_filter = date_from or date_to or (month is not None) or months
+    target_dates = store.filter_dates(date_from, date_to, month, months) if has_filter else all_dates
+    if not target_dates:
+        return {"products": []}
+
+    target_set = set(target_dates)
+    # Aggregate: product -> list of correction events
+    product_map = {}  # product_name -> {events: [...], sum_delta, ...}
+
+    for code, unit_info in store.units.items():
+        unit_dates = unit_info["dates"]
+        filtered_unit_dates = [d for d in unit_dates if d in target_set]
+        if not filtered_unit_dates:
+            continue
+        recon = get_product_recon_gaps(unit_info["data"], filtered_unit_dates)
+
+        for direction in ("inputs", "outputs"):
+            dir_label = "Сырьё" if direction == "inputs" else "Продукция"
+            for prod_data in recon[direction]:
+                product = prod_data["product"]
+                key = product
+                if key not in product_map:
+                    product_map[key] = {"product": product, "events": [], "direction": dir_label}
+
+                for i, d_str in enumerate(recon["dates"]):
+                    m = prod_data["measured"][i]
+                    r = prod_data["reconciled"][i]
+                    gap_pct = prod_data["gaps_pct"][i]
+                    gap_tons = prod_data["gaps_tons"][i]
+                    if m > 0 or r > 0:
+                        product_map[key]["events"].append({
+                            "date": d_str,
+                            "measured": m,
+                            "reconciled": r,
+                            "delta_tons": round(r - m, 2),
+                            "delta_pct": round((r - m) / m * 100, 2) if m else 0,
+                            "abs_delta_pct": gap_pct,
+                            "unit_code": code,
+                            "unit_name": unit_info["name"],
+                        })
+
+    # Build response
+    products = []
+    for key, pdata in product_map.items():
+        events = pdata["events"]
+        if not events:
+            continue
+        abs_deltas = [abs(e["delta_pct"]) for e in events]
+        avg_delta_tons = sum(e["delta_tons"] for e in events) / len(events) if events else 0
+        max_delta_pct = max(abs_deltas) if abs_deltas else 0
+        products.append({
+            "product": pdata["product"],
+            "direction": pdata["direction"],
+            "total_events": len(events),
+            "avg_delta_tons": round(avg_delta_tons, 2),
+            "max_delta_pct": round(max_delta_pct, 2),
+            "events": sorted(events, key=lambda e: abs(e["delta_pct"]), reverse=True),
+        })
+
+    products.sort(key=lambda p: p["total_events"], reverse=True)
+    return {"products": products}
