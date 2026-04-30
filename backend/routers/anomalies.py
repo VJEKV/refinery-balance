@@ -281,8 +281,8 @@ def _get_product_details(unit_code: str, ds: str):
             r = float(row.get(recon_col, 0) or 0)
             if m == 0 and r == 0:
                 continue
-            delta_tons = round(abs(m - r), 2)
-            delta_pct = round(abs(m - r) / abs(m) * 100, 2) if m != 0 else 0.0
+            delta_tons = round(r - m, 2)
+            delta_pct = round((r - m) / abs(m) * 100, 2) if m != 0 else 0.0
             items.append({
                 "product": row["product"],
                 "measured": round(m, 2),

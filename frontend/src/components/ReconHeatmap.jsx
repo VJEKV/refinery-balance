@@ -151,7 +151,7 @@ export default function ReconHeatmap({ unitCode, direction, title, dateParams = 
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-dark-text">
           {title}
-          <InfoTooltip text="Расхождение: |замер − согласовано| / замер × 100%." />
+          <InfoTooltip text="Расхождение: Δ = (согласовано − замер) / замер × 100%. Минус = уменьшили, плюс = увеличили." />
         </h3>
         <div className="flex rounded-lg border border-dark-border overflow-hidden">
           <button
@@ -345,7 +345,7 @@ export default function ReconHeatmap({ unitCode, direction, title, dateParams = 
             <div>Замер: {tooltip.measured.toFixed(1)} т</div>
             <div>Согл: {tooltip.reconciled.toFixed(1)} т</div>
             <div className="font-semibold mt-0.5">
-              Δ: {tooltip.delta_tons.toFixed(1)} т ({tooltip.delta_pct.toFixed(1)}%)
+              Δ: {tooltip.delta_tons >= 0 ? '+' : ''}{tooltip.delta_tons.toFixed(1)} т ({tooltip.delta_pct >= 0 ? '+' : ''}{tooltip.delta_pct.toFixed(1)}%)
             </div>
           </div>
         )}

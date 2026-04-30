@@ -889,11 +889,11 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                     <SortTh col="input_measured" {...sp} className={`${thCls} text-right`}>Сырьё изм (т)</SortTh>
                     <SortTh col="input_reconciled" {...sp} className={`${thCls} text-right`}>Сырьё согл (т)</SortTh>
                     <SortTh col="delta_input_tons" {...sp} className={`${thCls} text-right`}>Δ сырьё (т)</SortTh>
-                    <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
+                    <SortTh col="delta_input_pct" {...sp} className={`${thCls} text-right`}>Δ сырьё (%)<InfoTooltip text="(согласовано − замер) / замер × 100%" /></SortTh>
                     <SortTh col="output_measured" {...sp} className={`${thCls} text-right`}>Продукция изм (т)</SortTh>
                     <SortTh col="output_reconciled" {...sp} className={`${thCls} text-right`}>Продукция согл (т)</SortTh>
                     <SortTh col="delta_output_tons" {...sp} className={`${thCls} text-right`}>Δ продукц (т)</SortTh>
-                    <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)<InfoTooltip text="|замер − согласовано| / замер × 100%" /></SortTh>
+                    <SortTh col="delta_output_pct" {...sp} className={`${thCls} text-right`}>Δ продукц (%)<InfoTooltip text="(согласовано − замер) / замер × 100%" /></SortTh>
                   </>
                 )}
                 {isSpc && (
@@ -945,22 +945,32 @@ function MethodDetailTable({ method, items, unitName, unitCode }) {
                           <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
                           <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{(a.delta_pct ?? 0).toFixed(2)}%</td>
+                          <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.delta_tons ?? 0) >= 0 ? '+' : '') + (a.delta_tons ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                          <td className={`${tdCls} text-right tabular-nums text-accent-red font-medium`}>{((a.delta_pct ?? 0) >= 0 ? '+' : '') + (a.delta_pct ?? 0).toFixed(2)}%</td>
                         </>
                       )}
-                      {isReconGap && (
-                        <>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_tons ?? Math.abs((a.input_measured ?? 0) - (a.input_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_input_pct ?? 0).toFixed(2)}%</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_tons ?? Math.abs((a.output_measured ?? 0) - (a.output_reconciled ?? 0))).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
-                          <td className={`${tdCls} text-right tabular-nums text-accent-yellow font-medium`}>{(a.delta_output_pct ?? 0).toFixed(2)}%</td>
-                        </>
-                      )}
+                      {isReconGap && (() => {
+                        const dit = a.delta_input_tons ?? ((a.input_reconciled ?? 0) - (a.input_measured ?? 0))
+                        const dip = a.delta_input_pct ?? 0
+                        const dot = a.delta_output_tons ?? ((a.output_reconciled ?? 0) - (a.output_measured ?? 0))
+                        const dop = a.delta_output_pct ?? 0
+                        const fS = v => (v >= 0 ? '+' : '') + v.toLocaleString('ru-RU', {maximumFractionDigits:1})
+                        const fP = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+                        const cI = Math.abs(dip) > 5 ? 'text-accent-red font-medium' : Math.abs(dip) > 2 ? 'text-accent-yellow font-medium' : 'text-dark-muted'
+                        const cO = Math.abs(dop) > 5 ? 'text-accent-red font-medium' : Math.abs(dop) > 2 ? 'text-accent-yellow font-medium' : 'text-dark-muted'
+                        return (
+                          <>
+                            <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.input_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                            <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.input_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                            <td className={`${tdCls} text-right tabular-nums ${cI}`}>{fS(dit)}</td>
+                            <td className={`${tdCls} text-right tabular-nums ${cI}`}>{fP(dip)}</td>
+                            <td className={`${tdCls} text-right tabular-nums text-accent-blue`}>{(a.output_measured ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                            <td className={`${tdCls} text-right tabular-nums text-accent-green`}>{(a.output_reconciled ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>
+                            <td className={`${tdCls} text-right tabular-nums ${cO}`}>{fS(dot)}</td>
+                            <td className={`${tdCls} text-right tabular-nums ${cO}`}>{fP(dop)}</td>
+                          </>
+                        )
+                      })()}
                       {isSpc && (
                         <>
                           <td className={`${tdCls} text-right tabular-nums text-dark-text`}>{(a.consumed ?? 0).toLocaleString('ru-RU', {maximumFractionDigits:1})}</td>

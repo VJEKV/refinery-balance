@@ -170,7 +170,7 @@ cp deploy/nginx.conf /etc/nginx/sites-available/refinery
 ## Последняя сборка
 - **Дата:** 25 марта 2026
 - **Версия:** 1.9.0
-- **GitHub Actions run:** _(обновить после сборки)_
+- **GitHub Actions run:** https://github.com/VJEKV/refinery-balance/actions/runs/23532050075
 - **Артефакт:** `NPZ_MB` — готовый Windows .exe (server.exe + frontend/dist + START/STOP.bat)
 - **Скачать:** GitHub → Actions → «Build Windows EXE» → последний успешный запуск → Artifacts → NPZ_MB
 
